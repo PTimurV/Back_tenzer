@@ -1,96 +1,77 @@
 from aiohttp import web
-from db import get_connection
+from sqlalchemy.exc import SQLAlchemyError
+from models import db_session, Travel, Place
 
-async def create_travel(request):
-    data = await request.json()
-    print(data)
-    travel_name = data.get('name')
-    travel_description = data.get('description')
-    travel_places = data.get('places')
+class TravelHandler:
+    async def create_travel(self, request):
+        data = await request.json()
+        travel_name = data.get('name')
+        travel_description = data.get('description')
+        travel_places = data.get('places')
 
-    try:
-        connection = get_connection()
-
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO travels (name, description) VALUES (%s, %s) RETURNING id;",
-                (travel_name, travel_description)
-            )
-            travel_id = cursor.fetchone()[0]
+        try:
+            new_travel = Travel(name=travel_name, description=travel_description)
+            db_session.add(new_travel)
+            db_session.flush()  # Получаем ID для связанных записей
 
             for place in travel_places:
-                cursor.execute(
-                    "INSERT INTO places (travel_id, address, name, type) VALUES (%s, %s, %s, %s);",
-                    (travel_id, place['address'], place['name'], place['type'])
-                )
+                new_place = Place(address=place['address'], name=place['name'], type=place['type'], travel_id=new_travel.id)
+                db_session.add(new_place)
 
-            connection.commit()
+            db_session.commit()
 
-        return web.json_response({'id': travel_id, 'name': travel_name, 'description': travel_description, 'places': travel_places}, status=201)
+            return web.json_response({
+                'id': new_travel.id,
+                'name': travel_name,
+                'description': travel_description,
+                'places': [place.id for place in new_travel.places]
+            }, status=201)
 
-    except Exception as ex:
-        return web.json_response({'error': str(ex)}, status=500)
+        except SQLAlchemyError as e:
+            db_session.rollback()
+            return web.json_response({'error': str(e)}, status=500)
 
-    finally:
-        if connection:
-            connection.close()
+    async def get_all_travels(self, request):
+        try:
+            travels = db_session.query(Travel).all()
+            travel_list = [{
+                'id': travel.id,
+                'name': travel.name,
+                'description': travel.description,
+                'places': [{
+                    'id': place.id,
+                    'address': place.address,
+                    'name': place.name,
+                    'type': place.type
+                } for place in travel.places]
+            } for travel in travels]
 
-async def get_all_travels(request):
-    try:
-        connection = get_connection()
+            return web.json_response(travel_list, status=200)
 
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT * FROM travels;")
-            travels = cursor.fetchall()
+        except SQLAlchemyError as e:
+            return web.json_response({'error': str(e)}, status=500)
 
-            travel_list = []
-            for travel in travels:
-                cursor.execute("SELECT * FROM places WHERE travel_id = %s;", (travel[0],))
-                places = cursor.fetchall()
-                travel_list.append({
-                    'id': travel[0],
-                    'name': travel[1],
-                    'description': travel[2],
-                    'places': [{'id': place[0], 'address': place[2], 'name': place[3], 'type': place[4]} for place in places]
-                })
+    async def get_travel_by_id(self, request):
+        travel_id = int(request.match_info['id'])
 
-        return web.json_response(travel_list, status=200)
-
-    except Exception as ex:
-        return web.json_response({'error': str(ex)}, status=500)
-
-    finally:
-        if connection:
-            connection.close()
-
-async def get_travel_by_id(request):
-    travel_id = request.match_info['id']
-
-    try:
-        connection = get_connection()
-
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT * FROM travels WHERE id = %s;", (travel_id,))
-            travel = cursor.fetchone()
-
+        try:
+            travel = db_session.query(Travel).filter(Travel.id == travel_id).first()
             if not travel:
                 return web.json_response({'message': 'Travel not found'}, status=404)
 
-            cursor.execute("SELECT * FROM places WHERE travel_id = %s;", (travel[0],))
-            places = cursor.fetchall()
-
             travel_data = {
-                'id': travel[0],
-                'name': travel[1],
-                'description': travel[2],
-                'places': [{'id': place[0], 'address': place[2], 'name': place[3], 'type': place[4]} for place in places]
+                'id': travel.id,
+                'name': travel.name,
+                'description': travel.description,
+                'places': [{
+                    'id': place.id,
+                    'address': place.address,
+                    'name': place.name,
+                    'type': place.type
+                } for place in travel.places]
             }
 
-        return web.json_response(travel_data, status=200)
+            return web.json_response(travel_data, status=200)
 
-    except Exception as ex:
-        return web.json_response({'error': str(ex)}, status=500)
-
-    finally:
-        if connection:
-            connection.close()
+        except SQLAlchemyError as e:
+            return web.json_response({'error': str(e)}, status=500)
