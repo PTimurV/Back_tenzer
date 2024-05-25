@@ -3,7 +3,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from models import db_session, User
 from jwtAuth import JWTAuth
 import datetime
-import jwt
+from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 import bcrypt
 
 class AuthHandler:
