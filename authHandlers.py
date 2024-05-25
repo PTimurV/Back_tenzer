@@ -4,17 +4,19 @@ from models import db_session, User
 from jwtAuth import JWTAuth
 import datetime
 import jwt
+import bcrypt
 
 class AuthHandler:
     async def register(self, request):
         data = await request.json()
         userEmail = data.get('email')
-        userLogin = data.get('login')
-        userPassword = data.get('password')
+        userName = data.get('username')
+        userPassword = data.get('password').encode('utf-8')
+        hashed_password = bcrypt.hashpw(userPassword, bcrypt.gensalt()).decode('utf-8')
 
         try:
             # Создание нового пользователя
-            new_user = User(email=userEmail, login=userLogin, password=userPassword)
+            new_user = User(email=userEmail, username=userName, password=hashed_password)
             db_session.add(new_user)
             db_session.commit()
 
@@ -22,14 +24,17 @@ class AuthHandler:
             access_token_expires = datetime.timedelta(minutes=JWTAuth.ACCESS_TOKEN_EXPIRE_MINUTES)
             refresh_token_expires = datetime.timedelta(days=JWTAuth.REFRESH_TOKEN_EXPIRE_DAYS)
             
-            access_token = JWTAuth.create_access_token(data={"sub": userLogin}, expires_delta=access_token_expires)
-            refresh_token = JWTAuth.create_refresh_token(data={"sub": userLogin}, expires_delta=refresh_token_expires)
+            access_token = JWTAuth.create_access_token(data={"sub": userName}, expires_delta=access_token_expires)
+            refresh_token = JWTAuth.create_refresh_token(data={"sub": userName}, expires_delta=refresh_token_expires)
 
-            return web.json_response({
+            response =  web.json_response({
                 'message': 'User registered successfully',
                 'access_token': access_token,
-                'refresh_token': refresh_token
             }, status=201)
+
+            response.set_cookie('refreshToken', refresh_token, httponly=True, secure=True, samesite='Strict', path='/refresh_token')
+
+            return response
 
         except SQLAlchemyError as e:
             db_session.rollback()
@@ -37,23 +42,24 @@ class AuthHandler:
 
     async def login(self, request):
         data = await request.json()
-        userLogin = data.get('login')
-        userPassword = data.get('password')
+        userName = data.get('username')
+        userPassword = data.get('password').encode('utf-8')
 
         try:
-            user = db_session.query(User).filter(User.login == userLogin, User.password == userPassword).first()
-            if user:
+            user = db_session.query(User).filter(User.username == userName).first()
+            if user and bcrypt.checkpw(userPassword, user.password.encode('utf-8')):  # Проверка хеша пароля
                 access_token_expires = datetime.timedelta(minutes=JWTAuth.ACCESS_TOKEN_EXPIRE_MINUTES)
                 refresh_token_expires = datetime.timedelta(days=JWTAuth.REFRESH_TOKEN_EXPIRE_DAYS)
                 
-                access_token = JWTAuth.create_access_token(data={"sub": userLogin}, expires_delta=access_token_expires)
-                refresh_token = JWTAuth.create_refresh_token(data={"sub": userLogin}, expires_delta=refresh_token_expires)
+                access_token = JWTAuth.create_access_token(data={"sub": userName}, expires_delta=access_token_expires)
+                refresh_token = JWTAuth.create_refresh_token(data={"sub": userName}, expires_delta=refresh_token_expires)
 
-                return web.json_response({
+                response = web.json_response({
                     'message': 'Login successful',
                     'access_token': access_token,
-                    'refresh_token': refresh_token
                 }, status=200)
+                response.set_cookie('refreshToken', refresh_token, httponly=True, secure=True, samesite='Strict', path='/refresh_token')
+                return response
             else:
                 return web.json_response({'message': 'Invalid credentials'}, status=401)
 
@@ -66,13 +72,13 @@ class AuthHandler:
 
         try:
             payload = JWTAuth.decode_refresh_token(refresh_token)
-            userLogin = payload.get("sub")
+            userName = payload.get("sub")
 
-            if userLogin is None:
+            if userName is None:
                 raise web.HTTPUnauthorized(reason="Invalid refresh token")
 
             access_token_expires = datetime.timedelta(minutes=JWTAuth.ACCESS_TOKEN_EXPIRE_MINUTES)
-            new_access_token = JWTAuth.create_access_token(data={"sub": userLogin}, expires_delta=access_token_expires)
+            new_access_token = JWTAuth.create_access_token(data={"sub": userName}, expires_delta=access_token_expires)
 
             return web.json_response({
                 'access_token': new_access_token
