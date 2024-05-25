@@ -67,8 +67,10 @@ class AuthHandler:
             return web.json_response({'error': str(e)}, status=500)
 
     async def refresh_token(self, request):
-        data = await request.json()
-        refresh_token = data.get('refresh_token')
+        refresh_token = request.cookies.get('refreshToken')
+
+        if not refresh_token:
+            raise web.HTTPUnauthorized(reason="Refresh token not found")
 
         try:
             payload = JWTAuth.decode_refresh_token(refresh_token)
@@ -84,7 +86,7 @@ class AuthHandler:
                 'access_token': new_access_token
             }, status=200)
 
-        except jwt.ExpiredSignatureError:
+        except ExpiredSignatureError:
             return web.json_response({'message': 'Refresh token expired'}, status=401)
-        except jwt.InvalidTokenError:
+        except InvalidTokenError:
             return web.json_response({'message': 'Invalid refresh token'}, status=401)
