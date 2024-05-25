@@ -5,11 +5,13 @@ from pydantic import BaseModel, EmailStr, constr, validator
 from typing import List, Optional
 from config import host, user, password, db_name
 from datetime import date
+import os
 
 Base = declarative_base()
 
 # Настройка движка базы данных
-DATABASE_URL = f"postgresql+psycopg://{user}:{password}@{host}/{db_name}"
+#DATABASE_URL = f"postgresql+psycopg://{user}:{password}@{host}/{db_name}"
+DATABASE_URL = os.getenv("DATABASE_URL")
 engine = create_engine(DATABASE_URL)
 
 # Создание фабрики сессий

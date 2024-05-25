@@ -1,12 +1,15 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from config import host, user, password, db_name
+import os
 
 Base = declarative_base()
 
 class Database:
     # Строка подключения, использующая данные из файла config
-    DATABASE_URL = f"postgresql+psycopg://{user}:{password}@{host}/{db_name}"
+    #DATABASE_URL = f"postgresql+psycopg://{user}:{password}@{host}/{db_name}"
+
+    DATABASE_URL = os.getenv("DATABASE_URL")
 
     def __init__(self):
         # Создание движка SQLAlchemy
