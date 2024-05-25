@@ -15,5 +15,5 @@ app.router.add_post('/travels', travel_handler.create_travel)
 app.router.add_get('/travels', travel_handler.get_all_travels)
 app.router.add_get('/travels/{id}', travel_handler.get_travel_by_id)
 
-if __name__ == '__app__':
+if __name__ == '__main__':
     web.run_app(app, port=8080)
