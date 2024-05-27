@@ -24,8 +24,8 @@ class AuthHandler:
             access_token_expires = datetime.timedelta(minutes=JWTAuth.ACCESS_TOKEN_EXPIRE_MINUTES)
             refresh_token_expires = datetime.timedelta(days=JWTAuth.REFRESH_TOKEN_EXPIRE_DAYS)
             
-            access_token = JWTAuth.create_access_token(data={"sub": userName}, expires_delta=access_token_expires)
-            refresh_token = JWTAuth.create_refresh_token(data={"sub": userName}, expires_delta=refresh_token_expires)
+            access_token = JWTAuth.create_access_token(data={"sub": userName, "user_id": new_user.id}, expires_delta=access_token_expires)
+            refresh_token = JWTAuth.create_refresh_token(data={"sub": userName, "user_id": new_user.id}, expires_delta=refresh_token_expires)
 
             response =  web.json_response({
                 'message': 'User registered successfully',
@@ -51,8 +51,8 @@ class AuthHandler:
                 access_token_expires = datetime.timedelta(minutes=JWTAuth.ACCESS_TOKEN_EXPIRE_MINUTES)
                 refresh_token_expires = datetime.timedelta(days=JWTAuth.REFRESH_TOKEN_EXPIRE_DAYS)
                 
-                access_token = JWTAuth.create_access_token(data={"sub": userName}, expires_delta=access_token_expires)
-                refresh_token = JWTAuth.create_refresh_token(data={"sub": userName}, expires_delta=refresh_token_expires)
+                access_token = JWTAuth.create_access_token(data={"sub": userName, "user_id": user.id}, expires_delta=access_token_expires)
+                refresh_token = JWTAuth.create_refresh_token(data={"sub": userName, "user_id": user.id}, expires_delta=refresh_token_expires)
 
                 response = web.json_response({
                     'message': 'Login successful',
@@ -75,12 +75,16 @@ class AuthHandler:
         try:
             payload = JWTAuth.decode_refresh_token(refresh_token)
             userName = payload.get("sub")
+            userId = payload.get("user_id")
 
-            if userName is None:
+            if userName is None or userId is None:
                 raise web.HTTPUnauthorized(reason="Invalid refresh token")
 
             access_token_expires = datetime.timedelta(minutes=JWTAuth.ACCESS_TOKEN_EXPIRE_MINUTES)
-            new_access_token = JWTAuth.create_access_token(data={"sub": userName}, expires_delta=access_token_expires)
+            new_access_token = JWTAuth.create_access_token(
+                data={"sub": userName, "user_id": userId},
+                expires_delta=access_token_expires
+            )
 
             return web.json_response({
                 'access_token': new_access_token
@@ -90,3 +94,9 @@ class AuthHandler:
             return web.json_response({'message': 'Refresh token expired'}, status=401)
         except InvalidTokenError:
             return web.json_response({'message': 'Invalid refresh token'}, status=401)
+        
+    async def logout(self, request):
+        # Установить cookie с токеном обновления так, чтобы оно истекло
+        response = web.Response(text="Logged out successfully.")
+        response.del_cookie('refreshToken', path='/refresh_token')
+        return response

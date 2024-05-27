@@ -41,3 +41,14 @@ class JWTAuth:
             raise jwt.ExpiredSignatureError("Refresh token expired.")
         except InvalidTokenError:
             raise jwt.InvalidTokenError("Invalid refresh token.")
+        
+    @classmethod
+    def decode_access_token(cls, token):
+        try:
+            # Попытка декодирования токена с проверкой на валидность
+            decoded = jwt.decode(token, cls.JWT_SECRET, algorithms=[cls.JWT_ALGORITHM])
+            return decoded
+        except ExpiredSignatureError:
+            raise jwt.ExpiredSignatureError("Access token expired.")
+        except InvalidTokenError:
+            raise jwt.InvalidTokenError("Invalid access token.")

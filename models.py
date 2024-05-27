@@ -34,16 +34,20 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     city = Column(String)
     password = Column(String)
+    user_interests = relationship("UserInterest", back_populates="user")
 
 class Interest(Base):
     __tablename__ = 'interests'
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String)
+    user_interests = relationship("UserInterest", back_populates="interest")
 
 class UserInterest(Base):
     __tablename__ = 'user_interests'
     user_id = Column(Integer, ForeignKey('users.id'), primary_key=True)
     interest_id = Column(Integer, ForeignKey('interests.id'), primary_key=True)
+    user = relationship("User", back_populates="user_interests")
+    interest = relationship("Interest", back_populates="user_interests")
 
 class UserFriend(Base):
     __tablename__ = 'user_friends'
@@ -72,6 +76,7 @@ class UsersTravel(Base):
     img = Column(String)
     status = Column(String)
     travel_id = Column(Integer, ForeignKey('travels.id'))
+    places = relationship("PlacesTravel", back_populates="travel")
 
 class UsersTravelMember(Base):
     __tablename__ = 'user_travels_members'
@@ -89,6 +94,8 @@ class Place(Base):
     type = Column(String)
     coordinates = Column(String)
     status = Column(String)
+    photos = relationship("PlacePhoto", back_populates="place", cascade="all, delete-orphan")
+    travels = relationship("PlacesTravel", back_populates="place")
 
 class PlaceTravelComment(Base):
     __tablename__ = 'place_travel_comments'
@@ -104,6 +111,7 @@ class PlacePhoto(Base):
     place_id = Column(Integer, ForeignKey('places.id'))
     file = Column(String)
     name = Column(String)
+    place = relationship("Place", back_populates="photos")
 
 class PlaceFeedback(Base):
     __tablename__ = 'places_feedback'
@@ -111,6 +119,22 @@ class PlaceFeedback(Base):
     place_id = Column(Integer, ForeignKey('places.id'))
     score = Column(Float)
     description = Column(String)
+
+class PlacesTravel(Base):
+    __tablename__ = 'places_travel'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    users_travel_id = Column(Integer, ForeignKey('users_travels.id'))
+    place_id = Column(Integer, ForeignKey('places.id'))
+    date = Column(Date)
+    description = Column(String)
+    order = Column(Integer)
+
+    # Relationships
+    travel = relationship("UsersTravel", back_populates="places")
+    place = relationship("Place", back_populates="travels")
+
+
+
 
 
 # Pydantic models for User
@@ -120,6 +144,19 @@ class UserBase(BaseModel):
     name: Optional[str]
     surname: Optional[str]
 
+class UserUpdate(BaseModel):
+    img: Optional[str]
+    name: Optional[str]
+    surname: Optional[str]
+    role: Optional[str]
+    gender: Optional[str]
+    birthday: Optional[date]
+    city: Optional[str]
+    interests: List[int]  # Список ID интересов
+
+    class Config:
+        from_attributes = True
+
 class UserCreate(UserBase):
     password: str
 
@@ -128,12 +165,36 @@ class UserDisplay(UserBase):
     city: Optional[str]
     birthday: Optional[date]
 
+class UserInterestDisplay(BaseModel):
+    interest_id: int
+    name: str
+
+class UserSettingsDisplay(UserBase):
+    id: int
+    img: Optional[str]
+    name: Optional[str]
+    surname: Optional[str]
+    role: Optional[str]
+    gender: Optional[str]
+    birthday: Optional[date]
+    city: Optional[str]
+    interests: List[UserInterestDisplay] = []
+    class Config:
+        from_attributes = True
+        json_encoders = {
+            date: lambda x: x.isoformat() if x else None
+        }
 # Pydantic models for Interest
 class InterestBase(BaseModel):
     name: str
 
 class InterestDisplay(InterestBase):
     id: int
+
+
+
+
+
 
 # Pydantic models for Travel
 class TravelBase(BaseModel):
@@ -150,6 +211,40 @@ class TravelDisplay(TravelBase):
     status: str
     count_users: Optional[int]
 
+class PhotoDisplay(BaseModel):
+    id: int
+    file: str
+    name: Optional[str]
+    class Config:
+        from_attributes = True
+
+class PlaceInfo(BaseModel):
+    id: int
+    title: str
+    description: str
+    address: str
+    type: str
+    coordinates: str
+    travel_comment: Optional[str] = None
+    travel_date: Optional[date] = None
+    order: Optional[int] = None
+    photos: List[PhotoDisplay]
+    class Config:
+        from_attributes = True
+        json_encoders = {
+            date: lambda x: x.isoformat() if x else None
+        }
+
+class TravelInfoDisplay(BaseModel):
+    id: int
+    title: str
+    description: str
+    img: Optional[str]
+    status: str
+    places: List[PlaceInfo]
+
+
+
 # Pydantic models for Place
 class PlaceBase(BaseModel):
     title: str
@@ -158,12 +253,28 @@ class PlaceBase(BaseModel):
     type: str
     coordinates: str
 
+
+
+
 class PlaceCreate(PlaceBase):
     creator_user_id: int
+
+class PhotoBase(BaseModel):
+    file: str
+    name: Optional[str]
+
+class PhotoDisplay(PhotoBase):
+    id: int
+    place_id: int
+    class Config:
+        from_attributes = True
 
 class PlaceDisplay(PlaceBase):
     id: int
     status: str
+    photos: List[PhotoDisplay]
+    class Config:
+        from_attributes = True
 
 # Pydantic models for Feedback and Comments
 class PlaceFeedbackBase(BaseModel):
@@ -183,18 +294,9 @@ class PlaceCommentDisplay(PlaceCommentBase):
     user_id: int
     place_travel_id: int
 
-class PhotoBase(BaseModel):
-    file: str
-    name: Optional[str]
 
-class PhotoDisplay(PhotoBase):
-    id: int
-    place_id: int
 
 # Additional models for many-to-many relationships
-class UserInterestDisplay(BaseModel):
-    user_id: int
-    interest_id: int
 
 class UserFriendDisplay(BaseModel):
     user_id: int
@@ -203,3 +305,27 @@ class UserFriendDisplay(BaseModel):
 class UsersTravelMemberDisplay(BaseModel):
     users_travel_id: int
     user_id: int
+
+class PlaceTravelBase(BaseModel):
+    date: Optional[date]
+    description: Optional[str]
+    order: Optional[int]
+    class Config:
+        from_attributes = True
+        json_encoders = {
+            date: lambda x: x.isoformat()
+        }
+
+class PlaceTravelCreate(PlaceTravelBase):
+    users_travel_id: int
+    place_id: int
+
+class PlaceTravelDisplay(PlaceTravelBase):
+    id: int
+    users_travel_id: int
+    place_id: int
+    class Config:
+        from_attributes = True
+        json_encoders = {
+            date: lambda x: x.isoformat()
+        }
