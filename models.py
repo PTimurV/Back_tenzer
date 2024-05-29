@@ -1,11 +1,13 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, create_engine , Date, Float
+from sqlalchemy import Column, Integer, String, ForeignKey, create_engine , Date, Float,Index
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker, scoped_session
 from sqlalchemy.ext.declarative import declarative_base
-from pydantic import BaseModel, EmailStr, constr, validator
+from pydantic import BaseModel, EmailStr, constr, validator,Field
 from typing import List, Optional
 from config import host, user, password, db_name
 from datetime import date
 import os
+from sqlalchemy import LargeBinary
+import base64
 
 Base = declarative_base()
 
@@ -24,7 +26,7 @@ db_session = scoped_session(SessionLocal)
 class User(Base):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    img = Column(String)
+    img = Column(LargeBinary)
     name = Column(String)
     surname = Column(String)
     role = Column(String)
@@ -35,6 +37,10 @@ class User(Base):
     city = Column(String)
     password = Column(String)
     user_interests = relationship("UserInterest", back_populates="user")
+    friends = relationship("UserFriend", foreign_keys="[UserFriend.user_id]", back_populates="user")
+    friend_of = relationship("UserFriend", foreign_keys="[UserFriend.friend_id]", back_populates="friend")
+    feedbacks = relationship("PlaceFeedback", back_populates="user")
+    travel_memberships = relationship("UsersTravelMember", back_populates="user")
 
 class Interest(Base):
     __tablename__ = 'interests'
@@ -53,18 +59,24 @@ class UserFriend(Base):
     __tablename__ = 'user_friends'
     user_id = Column(Integer, ForeignKey('users.id'), primary_key=True)
     friend_id = Column(Integer, ForeignKey('users.id'), primary_key=True)
+    status = Column(Integer, default=0)  
+    __table_args__ = (Index('idx_status', 'status'),)
+    user = relationship("User", foreign_keys=[user_id], back_populates="friends")
+    friend = relationship("User", foreign_keys=[friend_id], back_populates="friend_of")
 
 # Travels and related structures
 class Travel(Base):
     __tablename__ = 'travels'
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey('users.id'))
-    title = Column(String)
-    description = Column(String)
+    user_travel_id = Column(Integer, ForeignKey('users_travels.id'))
     mean_score = Column(Float)
-    img = Column(String)
     status = Column(String)
     count_users = Column(Integer)
+    user_travel = relationship("UsersTravel", back_populates="travel", foreign_keys=[user_travel_id],
+                               primaryjoin="Travel.user_travel_id==remote(UsersTravel.id)")
+
+
 
 class UsersTravel(Base):
     __tablename__ = 'users_travels'
@@ -73,15 +85,20 @@ class UsersTravel(Base):
     title = Column(String)
     description = Column(String)
     score = Column(Float)
-    img = Column(String)
+    img = Column(LargeBinary)
     status = Column(String)
     travel_id = Column(Integer, ForeignKey('travels.id'))
     places = relationship("PlacesTravel", back_populates="travel")
+    members = relationship("UsersTravelMember", back_populates="travel")
+    travel = relationship("Travel", back_populates="user_travel", foreign_keys=[travel_id],
+                          primaryjoin="UsersTravel.travel_id==foreign(Travel.id)")
 
 class UsersTravelMember(Base):
     __tablename__ = 'user_travels_members'
     users_travel_id = Column(Integer, ForeignKey('users_travels.id'), primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'), primary_key=True)
+    travel = relationship("UsersTravel", back_populates="members")  # Убедитесь, что это добавлено
+    user = relationship("User", back_populates="travel_memberships")
 
 # Places and related structures
 class Place(Base):
@@ -95,7 +112,9 @@ class Place(Base):
     coordinates = Column(String)
     status = Column(String)
     photos = relationship("PlacePhoto", back_populates="place", cascade="all, delete-orphan")
+    feedbacks = relationship("PlaceFeedback", back_populates="place")
     travels = relationship("PlacesTravel", back_populates="place")
+    mean_score = Column(Float, default=0.0)
 
 class PlaceTravelComment(Base):
     __tablename__ = 'place_travel_comments'
@@ -109,16 +128,18 @@ class PlacePhoto(Base):
     __tablename__ = 'places_photo'
     id = Column(Integer, primary_key=True, autoincrement=True)
     place_id = Column(Integer, ForeignKey('places.id'))
-    file = Column(String)
-    name = Column(String)
+    file = Column(LargeBinary)
     place = relationship("Place", back_populates="photos")
 
 class PlaceFeedback(Base):
     __tablename__ = 'places_feedback'
     id = Column(Integer, primary_key=True, autoincrement=True)
     place_id = Column(Integer, ForeignKey('places.id'))
+    user_id = Column(Integer, ForeignKey('users.id'))  # ID пользователя, оставившего отзыв
     score = Column(Float)
     description = Column(String)
+    place = relationship("Place", back_populates="feedbacks")
+    user = relationship("User", back_populates="feedbacks")
 
 class PlacesTravel(Base):
     __tablename__ = 'places_travel'
@@ -138,6 +159,15 @@ class PlacesTravel(Base):
 
 
 # Pydantic models for User
+
+class FriendDisplay(BaseModel):
+    friend_id: int
+    username: str
+    name: Optional[str]
+    surname: Optional[str]
+    img: Optional[str]
+    status: int
+
 class UserBase(BaseModel):
     email: EmailStr
     username: str
@@ -145,14 +175,14 @@ class UserBase(BaseModel):
     surname: Optional[str]
 
 class UserUpdate(BaseModel):
-    img: Optional[str]
     name: Optional[str]
     surname: Optional[str]
     role: Optional[str]
     gender: Optional[str]
-    birthday: Optional[date]
+    birthday: Optional[str]
     city: Optional[str]
-    interests: List[int]  # Список ID интересов
+    interests: List[int] = []
+    img: Optional[bytes] = Field(None, description="Binary image data") 
 
     class Config:
         from_attributes = True
@@ -171,7 +201,7 @@ class UserInterestDisplay(BaseModel):
 
 class UserSettingsDisplay(UserBase):
     id: int
-    img: Optional[str]
+    img: Optional[bytes]
     name: Optional[str]
     surname: Optional[str]
     role: Optional[str]
@@ -184,6 +214,11 @@ class UserSettingsDisplay(UserBase):
         json_encoders = {
             date: lambda x: x.isoformat() if x else None
         }
+    @validator('img', pre=True, allow_reuse=True)
+    def convert_img_to_base64(cls, value):
+        if value is not None:
+            return f"data:image/png;base64,{base64.b64encode(value).decode('utf-8')}"
+        return value
 # Pydantic models for Interest
 class InterestBase(BaseModel):
     name: str
@@ -201,6 +236,9 @@ class TravelBase(BaseModel):
     title: str
     description: Optional[str]
 
+class AddMemberRequest(BaseModel):
+    user_id: int  # ID пользователя, которого добавляем
+
 class TravelCreate(TravelBase):
     user_id: int
 
@@ -214,9 +252,15 @@ class TravelDisplay(TravelBase):
 class PhotoDisplay(BaseModel):
     id: int
     file: str
-    name: Optional[str]
     class Config:
         from_attributes = True
+    @validator('file', pre=True, allow_reuse=True)
+    def convert_bytes_to_base64(cls, v):
+        if v is None:
+            return None  # Возвращаем None, если нет файла
+        if isinstance(v, bytes):
+            return f"data:image/jpeg;base64,{base64.b64encode(v).decode('utf-8')}"
+        return v
 
 class PlaceInfo(BaseModel):
     id: int
@@ -249,11 +293,40 @@ class TravelInfoDisplay(BaseModel):
 class PlaceBase(BaseModel):
     title: str
     description: Optional[str]
-    address: str
+    address: str    
     type: str
     coordinates: str
 
 
+
+class PhotoDisplayId(BaseModel):
+    file: str
+    @validator('file', pre=True, allow_reuse=True)
+    def convert_bytes_to_base64(cls, v):
+        if v is None:
+            return None  # Возвращаем None, если нет файла
+        if isinstance(v, bytes):
+            return f"data:image/jpeg;base64,{base64.b64encode(v).decode('utf-8')}"
+        return v
+
+class FeedbackDisplayId(BaseModel):
+    user_id: int
+    username: str
+    score: float
+    description: Optional[str]
+
+class PlaceDisplayId(BaseModel):
+    id: int
+    creator_user_id: int
+    title: str
+    description: str
+    address: str
+    type: str
+    coordinates: str
+    status: str
+    mean_score: float
+    photos: List[PhotoDisplayId]
+    feedbacks: List[FeedbackDisplayId]
 
 
 class PlaceCreate(PlaceBase):
@@ -261,13 +334,17 @@ class PlaceCreate(PlaceBase):
 
 class PhotoBase(BaseModel):
     file: str
-    name: Optional[str]
 
 class PhotoDisplay(PhotoBase):
     id: int
     place_id: int
     class Config:
         from_attributes = True
+    @validator('file', pre=True, allow_reuse=True)
+    def convert_bytes_to_base64(cls, v):
+        if isinstance(v, bytes):
+            return f"data:image/jpeg;base64,{base64.b64encode(v).decode('utf-8')}"
+        return v
 
 class PlaceDisplay(PlaceBase):
     id: int
@@ -324,6 +401,66 @@ class PlaceTravelDisplay(PlaceTravelBase):
     id: int
     users_travel_id: int
     place_id: int
+    class Config:
+        from_attributes = True
+        json_encoders = {
+            date: lambda x: x.isoformat()
+        }
+
+
+
+
+
+#Для эндпоинта просмотра детальной инфы о маршурте через id
+class PhotoDisplay2(BaseModel):
+    id: int
+    file: str
+    class Config:
+        from_attributes = True
+    @validator('file', pre=True, allow_reuse=True)
+    def convert_bytes_to_base64(cls, v):
+        if isinstance(v, bytes):
+            return f"data:image/jpeg;base64,{base64.b64encode(v).decode('utf-8')}"
+        return v
+
+class PlaceDisplay2(BaseModel):
+    id: int
+    title: str
+    description: str
+    address: str
+    type: str
+    coordinates: str
+    status: str
+    mean_score: float
+    photos: List[PhotoDisplay2]= []
+    class Config:
+        from_attributes = True
+
+class PlaceTravelDisplay2(BaseModel):
+    date: date
+    description: str
+    order: int
+    place: PlaceDisplay2
+    class Config:
+        from_attributes = True
+
+class TravelMemberDisplay2(BaseModel):
+    user_id: int
+    username: Optional[str]
+    img: Optional[str]
+    class Config:
+        from_attributes = True
+
+class UsersTravelDisplay2(BaseModel):
+    id: int
+    owner_user_id: int
+    title: str
+    description: str
+    score: Optional[float]
+    img: Optional[str]
+    status: str
+    places: List[PlaceTravelDisplay2] = []
+    members: List[TravelMemberDisplay2] = []
     class Config:
         from_attributes = True
         json_encoders = {
