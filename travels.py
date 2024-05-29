@@ -148,7 +148,7 @@ class TravelHandler:
                     'coordinates': place_travel.place.coordinates,
                     'status': place_travel.place.status,
                     'mean_score': place_travel.place.mean_score,
-                    'photos': [PhotoDisplay2.from_orm(photo).dict() for photo in place_travel.place.photos]
+                    'photos': [PhotoDisplay2.from_orm(photo).dict() for photo in place_travel.place.photos if photo.file is not None]
                 } for place_travel in user_travel.places
             ]
 
@@ -157,7 +157,7 @@ class TravelHandler:
                 {
                     'user_id': member.user_id,
                     'username': member.user.username,
-                    'img': member.user.img
+                    'img': base64.b64encode(member.user.img).decode('utf-8') if member.user.img else None
                 } for member in user_travel.members
             ]
 
@@ -168,7 +168,7 @@ class TravelHandler:
                 'title': user_travel.title,
                 'description': user_travel.description,
                 'score': user_travel.score,
-                'img': user_travel.img,
+                'img': base64.b64encode(user_travel.img).decode('utf-8') if user_travel.img else None,
                 'status': user_travel.status,
                 'places': places,
                 'members': members
@@ -293,7 +293,7 @@ class TravelHandler:
             if not travel:
                 return web.json_response({'message': 'Travel not found'}, status=404)
 
-            # Serialize places
+            # Serialize places with photo processing
             places = [
                 {
                     'id': place_travel.place.id,
@@ -304,7 +304,9 @@ class TravelHandler:
                     'coordinates': place_travel.place.coordinates,
                     'status': place_travel.place.status,
                     'mean_score': place_travel.place.mean_score,
-                    'photos': [PhotoDisplay2.from_orm(photo).dict() for photo in place_travel.place.photos]
+                    'photos': [
+                        PhotoDisplay2.from_orm(photo).dict() for photo in place_travel.place.photos if photo.file is not None
+                    ]
                 } for place_travel in travel.user_travel.places
             ]
 
@@ -313,7 +315,7 @@ class TravelHandler:
                 {
                     'user_id': member.user_id,
                     'username': member.user.username,
-                    'img': member.user.img
+                    'img': base64.b64encode(member.user.img).decode('utf-8') if member.user.img else None
                 } for member in travel.user_travel.members
             ]
 
@@ -328,7 +330,7 @@ class TravelHandler:
                     'title': travel.user_travel.title,
                     'description': travel.user_travel.description,
                     'score': travel.user_travel.score,
-                    'img': travel.user_travel.img,
+                    'img': base64.b64encode(travel.user_travel.img).decode('utf-8') if travel.user_travel.img else None,
                     'status': travel.user_travel.status,
                     'places': places,
                     'members': members
