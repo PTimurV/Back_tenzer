@@ -24,7 +24,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 db_session = scoped_session(SessionLocal)
 
 class User(Base):
-    __tablename__ = 'users'
+    __tablename__ = 'users1'
     id = Column(Integer, primary_key=True, autoincrement=True)
     img = Column(LargeBinary)
     name = Column(String)
