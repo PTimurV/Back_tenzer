@@ -50,15 +50,15 @@ class Interest(Base):
 
 class UserInterest(Base):
     __tablename__ = 'user_interests'
-    user_id = Column(Integer, ForeignKey('users.id'), primary_key=True)
+    user_id = Column(Integer, ForeignKey('users1.id'), primary_key=True)
     interest_id = Column(Integer, ForeignKey('interests.id'), primary_key=True)
     user = relationship("User", back_populates="user_interests")
     interest = relationship("Interest", back_populates="user_interests")
 
 class UserFriend(Base):
     __tablename__ = 'user_friends'
-    user_id = Column(Integer, ForeignKey('users.id'), primary_key=True)
-    friend_id = Column(Integer, ForeignKey('users.id'), primary_key=True)
+    user_id = Column(Integer, ForeignKey('users1.id'), primary_key=True)
+    friend_id = Column(Integer, ForeignKey('users1.id'), primary_key=True)
     status = Column(Integer, default=0)  
     __table_args__ = (Index('idx_status', 'status'),)
     user = relationship("User", foreign_keys=[user_id], back_populates="friends")
@@ -68,7 +68,7 @@ class UserFriend(Base):
 class Travel(Base):
     __tablename__ = 'travels'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey('users.id'))
+    user_id = Column(Integer, ForeignKey('users1.id'))
     user_travel_id = Column(Integer, ForeignKey('users_travels.id'))
     mean_score = Column(Float)
     status = Column(String)
@@ -81,7 +81,7 @@ class Travel(Base):
 class UsersTravel(Base):
     __tablename__ = 'users_travels'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    owner_user_id = Column(Integer, ForeignKey('users.id'))
+    owner_user_id = Column(Integer, ForeignKey('users1.id'))
     title = Column(String)
     description = Column(String)
     score = Column(Float)
@@ -96,7 +96,7 @@ class UsersTravel(Base):
 class UsersTravelMember(Base):
     __tablename__ = 'user_travels_members'
     users_travel_id = Column(Integer, ForeignKey('users_travels.id'), primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id'), primary_key=True)
+    user_id = Column(Integer, ForeignKey('users1.id'), primary_key=True)
     travel = relationship("UsersTravel", back_populates="members")  # Убедитесь, что это добавлено
     user = relationship("User", back_populates="travel_memberships")
 
@@ -104,7 +104,7 @@ class UsersTravelMember(Base):
 class Place(Base):
     __tablename__ = 'places'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    creator_user_id = Column(Integer, ForeignKey('users.id'))
+    creator_user_id = Column(Integer, ForeignKey('users1.id'))
     title = Column(String)
     description = Column(String)
     address = Column(String)
@@ -120,7 +120,7 @@ class PlaceTravelComment(Base):
     __tablename__ = 'place_travel_comments'
     id = Column(Integer, primary_key=True, autoincrement=True)
     place_travel_id = Column(Integer, ForeignKey('places.id'))
-    user_id = Column(Integer, ForeignKey('users.id'))
+    user_id = Column(Integer, ForeignKey('users1.id'))
     date = Column(Date)
     comment = Column(String)
 
@@ -135,7 +135,7 @@ class PlaceFeedback(Base):
     __tablename__ = 'places_feedback'
     id = Column(Integer, primary_key=True, autoincrement=True)
     place_id = Column(Integer, ForeignKey('places.id'))
-    user_id = Column(Integer, ForeignKey('users.id'))  # ID пользователя, оставившего отзыв
+    user_id = Column(Integer, ForeignKey('users1.id'))  # ID пользователя, оставившего отзыв
     score = Column(Float)
     description = Column(String)
     place = relationship("Place", back_populates="feedbacks")
