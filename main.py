@@ -50,7 +50,7 @@ def create_app():
     cors = aiohttp_cors.setup(app)
     for route in list(app.router.routes()):
         cors.add(route, {
-            "*": aiohttp_cors.ResourceOptions(
+            "https://starburst72.github.io/": aiohttp_cors.ResourceOptions(
                 allow_credentials=True, expose_headers="*", allow_headers="*", allow_methods="*")
         })
 
