@@ -24,7 +24,8 @@ def create_app():
     app.router.add_post('/refresh_token', auth_handler.refresh_token)
     app.router.add_post('/logout', auth_handler.logout)
 
-    app.router.add_post('/travels', travel_handler.create_user_travel)
+    app.router.add_post('/user_travels', travel_handler.create_user_travel)
+    app.router.add_put('/user_travels/{travel_id}', travel_handler.update_user_travel)
     app.router.add_get('/user_travels', travel_handler.get_user_travels)
     app.router.add_post('/user_travels/{id}/add_member', travel_handler.add_travel_member)
     app.router.add_get('/user_travels/{id}', travel_handler.get_user_travel_details)

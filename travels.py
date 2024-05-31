@@ -8,7 +8,95 @@ from sqlalchemy.orm import joinedload
 import json
 import base64
 class TravelHandler:
+    # async def create_user_travel(self, request):
+    #     token = request.headers.get('Authorization', '').split(' ')[-1]
+    #     user_payload = JWTAuth.decode_access_token(token)
+    #     owner_user_id = user_payload.get('user_id')
+
+    #     if not owner_user_id:
+    #         return web.json_response({'error': 'Unauthorized access'}, status=401)
+
+    #     reader = await request.multipart()
+    #     title = None
+    #     description = None
+    #     img = None
+
+    #     # Чтение данных из формы
+    #     while True:
+    #         part = await reader.next()
+    #         if part is None:
+    #             break
+    #         if part.name == 'title':
+    #             title = await part.text()
+    #         elif part.name == 'description':
+    #             description = await part.text()
+    #         elif part.name == 'img':
+    #             img = await part.read()  # Читаем бинарные данные изображения
+
+    #     if not title or not description:
+    #         return web.json_response({'error': 'Missing title or description'}, status=400)
+
+    #     try:
+    #         # Создаем новый объект UsersTravel
+    #         new_users_travel = UsersTravel(
+    #             owner_user_id=owner_user_id,
+    #             title=title,
+    #             description=description,
+    #             img=img,
+    #             status='creating'  # Статус по умолчанию
+    #         )
+    #         db_session.add(new_users_travel)
+    #         db_session.commit()
+
+    #         # Кодируем изображение в base64 для ответа, если оно есть
+    #         img_base64 = f"data:image/png;base64,{base64.b64encode(img).decode('utf-8')}" if img else None
+
+    #         return web.json_response({
+    #             'id': new_users_travel.id,
+    #             'title': title,
+    #             'description': description,
+    #             'status': new_users_travel.status,
+    #             'img': img_base64
+    #         }, status=201)
+
+    #     except SQLAlchemyError as e:
+    #         db_session.rollback()
+    #         return web.json_response({'error': str(e)}, status=500)
+
+
     async def create_user_travel(self, request):
+    # Получаем ID пользователя из заголовка Authorization
+        token = request.headers.get('Authorization', '').split(' ')[-1]
+    
+    # Декодируем токен для получения payload
+        user_payload = JWTAuth.decode_access_token(token)
+        owner_user_id = user_payload.get('user_id')
+
+        if not owner_user_id:
+            return web.json_response({'error': 'Unauthorized access'}, status=401)
+
+        try:
+            # Создаем новый объект UsersTravel с базовыми значениями
+            new_users_travel = UsersTravel(
+                owner_user_id=owner_user_id,
+                title="Новый маршрут",
+                description="",  # Пустое описание
+                img=None,  # Без изображения
+                status='creating'  # Статус по умолчанию
+            )
+            db_session.add(new_users_travel)
+            db_session.commit()
+
+            return web.json_response({
+                'id': new_users_travel.id,
+            }, status=201)
+
+        except SQLAlchemyError as e:
+            db_session.rollback()
+            return web.json_response({'error': str(e)}, status=500)
+        
+
+    async def update_user_travel(self, request):
         token = request.headers.get('Authorization', '').split(' ')[-1]
         user_payload = JWTAuth.decode_access_token(token)
         owner_user_id = user_payload.get('user_id')
@@ -17,47 +105,46 @@ class TravelHandler:
             return web.json_response({'error': 'Unauthorized access'}, status=401)
 
         reader = await request.multipart()
-        title = None
-        description = None
-        img = None
-
-        # Чтение данных из формы
-        while True:
-            part = await reader.next()
-            if part is None:
-                break
-            if part.name == 'title':
-                title = await part.text()
-            elif part.name == 'description':
-                description = await part.text()
-            elif part.name == 'img':
-                img = await part.read()  # Читаем бинарные данные изображения
-
-        if not title or not description:
-            return web.json_response({'error': 'Missing title or description'}, status=400)
+        data = {}
 
         try:
-            # Создаем новый объект UsersTravel
-            new_users_travel = UsersTravel(
-                owner_user_id=owner_user_id,
-                title=title,
-                description=description,
-                img=img,
-                status='creating'  # Статус по умолчанию
-            )
-            db_session.add(new_users_travel)
+            # Чтение данных из формы
+            while True:
+                part = await reader.next()
+                if part is None:
+                    break
+                if part.name in ['title', 'description', 'start_date', 'end_date']:
+                    data[part.name] = await part.text()
+                elif part.name == 'img':
+                    data['img'] = await part.read()  # Читаем бинарные данные изображения
+                elif part.name == 'member_ids':
+                    data['member_ids'] = [int(id) for id in (await part.text()).split(',') if id.isdigit()]
+
+            # Ищем существующий объект UsersTravel
+            travel_id = int(request.match_info['travel_id'])  # ID путешествия из URL
+            travel = db_session.query(UsersTravel).filter(UsersTravel.id == travel_id).first()
+            if not travel:
+                return web.json_response({'error': 'Travel not found'}, status=404)
+            
+            # Обновление данных объекта
+            for key, value in data.items():
+                setattr(travel, key, value)
+            
+            # Добавление участников, если они есть
+            if 'member_ids' in data:
+                for member_id in data['member_ids']:
+                    if db_session.query(User).filter(User.id == member_id).scalar():
+                        new_member = UsersTravelMember(
+                            users_travel_id=travel.id,
+                            user_id=member_id
+                        )
+                        db_session.add(new_member)
+
             db_session.commit()
-
-            # Кодируем изображение в base64 для ответа, если оно есть
-            img_base64 = f"data:image/png;base64,{base64.b64encode(img).decode('utf-8')}" if img else None
-
             return web.json_response({
-                'id': new_users_travel.id,
-                'title': title,
-                'description': description,
-                'status': new_users_travel.status,
-                'img': img_base64
-            }, status=201)
+                'id': travel.id,
+                'message': 'Travel updated successfully'
+            }, status=200)
 
         except SQLAlchemyError as e:
             db_session.rollback()
@@ -86,6 +173,8 @@ class TravelHandler:
                 description=travel.description,
                 img=base64.b64encode(travel.img).decode('utf-8') if travel.img else None,
                 status=travel.status,
+                start_date=travel.start_date,
+                end_date=travel.end_date,
                 places=[PlaceInfo(
                     id=place.place.id,
                     title=place.place.title,

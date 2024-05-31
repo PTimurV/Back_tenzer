@@ -87,6 +87,8 @@ class UsersTravel(Base):
     score = Column(Float)
     img = Column(LargeBinary)
     status = Column(String)
+    start_date = Column(Date)  # Добавлено поле для даты начала путешествия
+    end_date = Column(Date)    # Добавлено поле для даты окончания путешествия
     travel_id = Column(Integer, ForeignKey('travels.id'))
     places = relationship("PlacesTravel", back_populates="travel")
     members = relationship("UsersTravelMember", back_populates="travel")
@@ -281,11 +283,13 @@ class PlaceInfo(BaseModel):
 
 class TravelInfoDisplay(BaseModel):
     id: int
-    title: str
-    description: str
+    title: Optional[str]
+    description: Optional[str]
     img: Optional[str]
-    status: str
-    places: List[PlaceInfo]
+    status: Optional[str]
+    start_date: Optional[date]
+    end_date: Optional[date]
+    places: Optional[List[PlaceInfo]]
 
 
 
