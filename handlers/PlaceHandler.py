@@ -197,7 +197,7 @@ class PlaceHandler:
                 type=place.type,
                 coordinates=place.coordinates,
                 mean_score=place.mean_score,
-                photos=[PhotoDisplayId(file=photo.file) for photo in place.photos if photo.file is not None],
+                photos=[PhotoDisplayId(file=place.photos[0].file)] if place.photos and place.photos[0].file else [],
             ).dict() for place in places]
 
             return web.json_response(places_data, status=200)
