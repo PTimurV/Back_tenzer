@@ -36,7 +36,7 @@ def create_app():
     app.router.add_post('/places', place_handler.create_place)
     app.router.add_post('/add_place_to_travel/{id}', place_handler.add_place_to_travel)
     app.router.add_get('/place/{id}', place_handler.get_place_details)
-    app.router.add_get('/place/{id}', place_handler.get_all_places)
+    app.router.add_get('/places', place_handler.get_all_places)
 
     app.router.add_put('/profile/settings', user_handler.update_user)
     app.router.add_get('/profile/settings', user_handler.get_user_settings)
