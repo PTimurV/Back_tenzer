@@ -1,7 +1,7 @@
 from aiohttp import web
 from sqlalchemy.exc import SQLAlchemyError
 from models import db_session, Place,PlacePhoto
-from models import PlaceCreate, PlaceDisplay,PhotoBase,PhotoDisplay,PlaceTravelCreate,PlacesTravel,PlaceTravelDisplay,PlaceFeedback,FeedbackDisplayId,PlaceDisplayId,PhotoDisplayId
+from models import PlaceCreate, PlaceDisplay,PhotoBase,PhotoDisplay,PlaceTravelCreate,PlacesTravel,PlaceTravelDisplay,PlaceFeedback,PlaceDisplayId2,FeedbackDisplayId,PlaceDisplayId,PhotoDisplayId
 from jwtAuth import JWTAuth
 from pydantic import ValidationError  # Добавляем импорт
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
@@ -162,5 +162,47 @@ class PlaceHandler:
             return web.json_response({'error': 'Token has expired'}, status=401)
         except InvalidTokenError:
             return web.json_response({'error': 'Invalid token'}, status=401)
+        except SQLAlchemyError as e:
+            return web.json_response({'error': str(e)}, status=500)
+
+
+    async def get_all_places(self,request):
+        token = request.headers.get('Authorization', '').split(' ')[-1]
+
+        try:
+            payload = JWTAuth.decode_access_token(token)
+            user_id = payload.get("user_id")
+            if not user_id:
+                raise web.HTTPUnauthorized(reason="Missing or invalid token")
+
+            city = request.query.get('city')
+            type_param = request.query.get('type')
+
+            if not city or not type_param:
+                return web.json_response({'error': 'City and type must be provided'}, status=400)
+
+            query = db_session.query(Place)
+            query = query.filter(Place.address.contains(f", {city},"))
+            if type_param.lower() != "все":
+                query = query.filter(Place.type == type_param)
+
+            places = query.all()
+
+            places_data = [PlaceDisplayId2(
+                id=place.id,
+                creator_user_id=place.creator_user_id,
+                title=place.title,
+                description=place.description,
+                address=place.address,
+                type=place.type,
+                coordinates=place.coordinates,
+                mean_score=place.mean_score,
+                photos=[PhotoDisplayId(file=photo.file) for photo in place.photos if photo.file is not None],
+            ).dict() for place in places]
+
+            return web.json_response(places_data, status=200)
+
+        except web.HTTPUnauthorized as e:
+            return web.json_response({'error': str(e.reason)}, status=401)
         except SQLAlchemyError as e:
             return web.json_response({'error': str(e)}, status=500)

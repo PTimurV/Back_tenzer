@@ -332,6 +332,17 @@ class PlaceDisplayId(BaseModel):
     photos: List[PhotoDisplayId]
     feedbacks: List[FeedbackDisplayId]
 
+class PlaceDisplayId2(BaseModel):
+    id: int
+    creator_user_id: int
+    title: str
+    description: str
+    address: str
+    type: str
+    coordinates: str
+    mean_score: Optional[float]
+    photos: Optional[List[PhotoDisplayId]]
+
 
 class PlaceCreate(PlaceBase):
     creator_user_id: int
