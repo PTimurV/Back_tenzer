@@ -26,7 +26,7 @@ def create_app():
 
     app.router.add_post('/user_travels', travel_handler.create_user_travel)
     app.router.add_put('/user_travels/{travel_id}', travel_handler.update_user_travel)
-    app.router.add_get('/user_travels', travel_handler.get_user_travels)
+    app.router.add_get('/profile/{user_id}/user_travels', travel_handler.get_user_travels)
     app.router.add_post('/user_travels/{id}/add_member', travel_handler.add_travel_member)
     app.router.add_get('/user_travels/{id}', travel_handler.get_user_travel_details)
     app.router.add_get('/travels/{id}', travel_handler.get_travel_details)
@@ -41,7 +41,7 @@ def create_app():
     app.router.add_put('/profile/settings', user_handler.update_user)
     app.router.add_get('/profile/settings', user_handler.get_user_settings)
     app.router.add_get('/profile/{id}', user_handler.get_user_profile)
-    app.router.add_get('/friends', user_handler.get_friends)
+    app.router.add_get('/friends/{user_id}', user_handler.get_friends)
     app.router.add_post('/friends/send/{friend_id}', friend_handler.send_friend_request)
     app.router.add_post('/friends/respond/{request_id}', friend_handler.respond_to_friend_request)
     app.router.add_post('/places/{place_id}/feedback', feedback_handler.add_feedback)
@@ -52,7 +52,7 @@ def create_app():
     cors = aiohttp_cors.setup(app)
     for route in list(app.router.routes()):
         cors.add(route, {
-            "https://starburst72.github.io/": aiohttp_cors.ResourceOptions(
+            "*": aiohttp_cors.ResourceOptions(
                 allow_credentials=True, expose_headers="*", allow_headers="*", allow_methods="*")
         })
 

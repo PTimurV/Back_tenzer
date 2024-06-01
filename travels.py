@@ -151,12 +151,10 @@ class TravelHandler:
             return web.json_response({'error': str(e)}, status=500)
 
     async def get_user_travels(self,request):
-        token = request.headers.get('Authorization', '').split(' ')[-1]
         try:
-            payload = JWTAuth.decode_access_token(token)
-            user_id = payload.get("user_id")
+            user_id = int(request.match_info['user_id'])  # ID путешествия из URL
             if not user_id:
-                raise web.HTTPUnauthorized(reason="Missing or invalid token")
+                raise web.HTTPUnauthorized(reason="Missing user_id")
 
             travel_status = request.query.get('status')
             if travel_status not in ['creating', 'passed']:
@@ -169,6 +167,7 @@ class TravelHandler:
 
             response_data = [TravelInfoDisplay(
                 id=travel.id,
+                owner_user_id = travel.owner_user_id,
                 title=travel.title,
                 description=travel.description,
                 img=base64.b64encode(travel.img).decode('utf-8') if travel.img else None,
@@ -349,7 +348,7 @@ class TravelHandler:
                     user_id=user_id,
                     user_travel_id=travel_id,
                     mean_score=new_score,
-                    status='passed',
+                    status=0,
                     count_users=1
                 )
                 db_session.add(new_travel)

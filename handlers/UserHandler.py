@@ -243,10 +243,8 @@ class UserHandler:
             return web.json_response({'error': str(e)}, status=500)
 
     async def get_friends(self, request):
-        token = request.headers.get('Authorization', '').split(' ')[-1]
         try:
-            payload = JWTAuth.decode_access_token(token)
-            user_id = payload.get("user_id")
+            user_id = int(request.match_info['user_id'])
             if not user_id:
                 raise web.HTTPUnauthorized(reason="Missing or invalid token")
 
