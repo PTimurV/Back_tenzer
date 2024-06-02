@@ -6,6 +6,8 @@ from handlers.PlaceHandler import PlaceHandler
 from handlers.UserHandler import UserHandler
 from handlers.FriendHandler import FriendHandler
 from handlers.FeedbackHandler import FeedbackHandler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from scriptsCircle.bestTravel import update_best_travels, update_travel_status
 
 def create_app():
     app = web.Application()
@@ -33,6 +35,8 @@ def create_app():
     app.router.add_post('/user_travels/{id}/passed', travel_handler.update_travel_status_and_score)
     app.router.add_post('/travels/{id}/copy', travel_handler.copy_travel)
 
+    app.router.add_get('/HintCard', travel_handler.hint_card)
+
     app.router.add_post('/places', place_handler.create_place)
     app.router.add_post('/add_place_to_travel/{id}', place_handler.add_place_to_travel)
     app.router.add_get('/place/{id}', place_handler.get_place_details)
@@ -58,6 +62,21 @@ def create_app():
 
     return app
 
+async def on_startup(app):
+    # Настройка планировщика задач
+    print(1)
+    scheduler = AsyncIOScheduler()
+    print(2)
+    scheduler.add_job(update_best_travels, 'interval', weeks=1)
+    scheduler.add_job(update_travel_status, 'interval', days=1)
+    print(3)
+    scheduler.start()
+    print(4)
+    await update_best_travels()
+    await update_travel_status()
+    
+app = create_app()
+app.on_startup.append(on_startup)
+
 if __name__ == '__main__':
-    app = create_app()
     web.run_app(app, port=8080)

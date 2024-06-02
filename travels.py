@@ -1,12 +1,13 @@
 from aiohttp import web
 from sqlalchemy.exc import SQLAlchemyError
-from models import db_session, Travel, Place,UsersTravel, PlaceInfo,PlacesTravel,TravelInfoDisplay,PhotoDisplay,AddMemberRequest,UsersTravelMember,User,UsersTravelDisplay2,PhotoDisplay2
+from models import db_session, Travel, Place,UsersTravel, PlaceInfo,PlacesTravel,TravelInfoDisplay,PhotoDisplay,AddMemberRequest,UsersTravelMember,User,UsersTravelDisplay2,PhotoDisplay2,BestTravel,UserFriend
 from jwtAuth import JWTAuth
 from pydantic import ValidationError  # Добавляем импорт
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 from sqlalchemy.orm import joinedload
 import json
 import base64
+from datetime import datetime
 class TravelHandler:
     # async def create_user_travel(self, request):
     #     token = request.headers.get('Authorization', '').split(' ')[-1]
@@ -487,7 +488,12 @@ class TravelHandler:
 
             db_session.commit()
 
-            return web.json_response({'message': 'Travel copied successfully'}, status=201)
+
+            response_data = {
+                'users_travel_id': new_travel.id
+            }
+
+            return web.json_response(response_data, status=201)
 
         except ValidationError as e:
             db_session.rollback()
@@ -499,3 +505,94 @@ class TravelHandler:
         except SQLAlchemyError as e:
             db_session.rollback()
             return web.json_response({'error': str(e)}, status=500)
+        
+
+    async def hint_card(self, request):
+        token = request.headers.get('Authorization', '').split(' ')[-1]
+        try:
+            payload = JWTAuth.decode_access_token(token)
+            user_id = payload.get("user_id")
+            if not user_id:
+                raise web.HTTPUnauthorized(reason="Missing or invalid token")
+
+            best_travels = db_session.query(BestTravel).options(
+                joinedload(BestTravel.travel).joinedload(Travel.user_travel)
+            ).all()
+
+            response_data = [
+                {
+                    'id': best_travel.travel.id,
+                    'title': best_travel.travel.user_travel.title,
+                    'description': best_travel.travel.user_travel.description,
+                    'mean_score': best_travel.travel.mean_score,
+                    'img': base64.b64encode(best_travel.travel.user_travel.img).decode('utf-8') if best_travel.travel.user_travel.img else None,
+                    'count_users': best_travel.travel.count_users
+                } for best_travel in best_travels
+            ]
+
+            # Запрос для получения ближайших маршрутов пользователя
+            upcoming_travels = db_session.query(UsersTravel).filter(
+                UsersTravel.owner_user_id == user_id,
+                UsersTravel.status == 'creating',
+                UsersTravel.start_date >= datetime.today()
+            ).order_by(
+                UsersTravel.start_date.asc()
+            ).limit(5).all()
+
+            upcoming_data = [
+                {
+                    'id': travel.id,
+                    'title': travel.title,
+                    'description': travel.description,
+                    'mean_score': travel.score,
+                    'img': base64.b64encode(travel.img).decode('utf-8') if travel.img else None,
+                    'start_date': travel.start_date.isoformat() if travel.start_date else None,
+                    'end_date': travel.end_date.isoformat() if travel.end_date else None
+                } for travel in upcoming_travels
+            ]
+
+            # Получение списка друзей пользователя
+            friends = db_session.query(UserFriend).filter(
+                (UserFriend.user_id == user_id) | (UserFriend.friend_id == user_id),
+                UserFriend.status == 1
+            ).all()
+
+            friend_ids = {f.friend_id if f.user_id == user_id else f.user_id for f in friends}
+
+            # Получение маршрутов, где друзья являются создателями
+            friends_travels_owner = db_session.query(UsersTravel, User).select_from(UsersTravel).join(User, UsersTravel.owner_user_id == User.id).filter(
+                UsersTravel.owner_user_id.in_(friend_ids),
+                UsersTravel.start_date >= datetime.today()
+            ).all()
+
+            # Получение маршрутов, где друзья являются участниками
+            friends_travels_member = db_session.query(UsersTravel, User).select_from(UsersTravel).join(UsersTravelMember, UsersTravel.id == UsersTravelMember.users_travel_id).join(User, UsersTravelMember.user_id == User.id).filter(
+                UsersTravelMember.user_id.in_(friend_ids),
+                UsersTravel.start_date >= datetime.today()
+            ).all()
+
+            # Объединение и сортировка маршрутов друзей
+            all_friends_travels = friends_travels_owner + friends_travels_member
+            all_friends_travels = sorted(all_friends_travels, key=lambda x: x[0].start_date)[:5]
+
+            friends_travel_data = [
+                {
+                    'id': travel.id,
+                    'title': travel.title,
+                    'description': travel.description,
+                    'mean_score': travel.score,
+                    'img': base64.b64encode(travel.img).decode('utf-8') if travel.img else None,
+                    'start_date': travel.start_date.isoformat() if travel.start_date else None,
+                    'end_date': travel.end_date.isoformat() if travel.end_date else None,
+                    'friend_id': user.id,
+                    'friend_username': user.username
+                } for travel, user in all_friends_travels
+            ]
+
+            return web.json_response({'best_travels': response_data, 'upcoming_travels': upcoming_data, 'friends_travels': friends_travel_data}, status=200)
+        
+        except SQLAlchemyError as e:
+            db_session.rollback()
+            return web.json_response({'error': str(e)}, status=500)
+        except Exception as e:
+            return web.json_response({'error': str(e)}, status=400)
