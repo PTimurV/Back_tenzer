@@ -28,6 +28,7 @@ class AuthHandler:
             refresh_token = JWTAuth.create_refresh_token(data={"sub": userName, "user_id": new_user.id}, expires_delta=refresh_token_expires)
 
             response =  web.json_response({
+                "id": new_user.id,
                 'message': 'User registered successfully',
                 'access_token': access_token,
             }, status=201)
@@ -55,6 +56,7 @@ class AuthHandler:
                 refresh_token = JWTAuth.create_refresh_token(data={"sub": userName, "user_id": user.id}, expires_delta=refresh_token_expires)
 
                 response = web.json_response({
+                    "id": user.id,
                     'message': 'Login successful',
                     'access_token': access_token,
                 }, status=200)
@@ -87,6 +89,7 @@ class AuthHandler:
             )
 
             return web.json_response({
+                "id": userId,                
                 'access_token': new_access_token
             }, status=200)
 
