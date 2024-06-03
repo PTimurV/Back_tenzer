@@ -158,7 +158,7 @@ class TravelHandler:
                 raise web.HTTPUnauthorized(reason="Missing user_id")
 
             travel_status = request.query.get('status')
-            if travel_status not in ['creating', 'passed']:
+            if travel_status not in ['creating', 'passed', 'now']:
                 return web.json_response({'error': 'Invalid status provided'}, status=400)
 
             travels = db_session.query(UsersTravel).filter(
