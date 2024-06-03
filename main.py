@@ -46,6 +46,8 @@ def create_app():
     app.router.add_get('/profile/settings', user_handler.get_user_settings)
     app.router.add_get('/profile/{id}', user_handler.get_user_profile)
     app.router.add_get('/friends/{user_id}', user_handler.get_friends)
+    app.router.add_get('/users', user_handler.get_all_users)
+
     app.router.add_post('/friends/send/{friend_id}', friend_handler.send_friend_request)
     app.router.add_post('/friends/respond/{request_id}', friend_handler.respond_to_friend_request)
     app.router.add_post('/places/{place_id}/feedback', feedback_handler.add_feedback)

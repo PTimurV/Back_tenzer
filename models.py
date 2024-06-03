@@ -207,6 +207,24 @@ class UserInterestDisplay(BaseModel):
     interest_id: int
     name: str
 
+class UserProfileDisplay(BaseModel):
+    username: str
+    name: str
+    surname: str
+    img: Optional[bytes]
+    owner: int
+    interests: List[UserInterestDisplay]
+    class Config:
+        from_attributes = True
+        json_encoders = {
+            date: lambda x: x.isoformat() if x else None
+        }
+    @validator('img', pre=True, allow_reuse=True)
+    def convert_img_to_base64(cls, value):
+        if value is not None:
+            return f"data:image/png;base64,{base64.b64encode(value).decode('utf-8')}"
+        return value
+
 class UserSettingsDisplay(UserBase):
     id: int
     img: Optional[bytes]

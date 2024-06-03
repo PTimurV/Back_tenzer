@@ -29,6 +29,7 @@ class AuthHandler:
 
             response =  web.json_response({
                 "id": new_user.id,
+                "username": userName,
                 'message': 'User registered successfully',
                 'access_token': access_token,
             }, status=201)
@@ -57,6 +58,7 @@ class AuthHandler:
 
                 response = web.json_response({
                     "id": user.id,
+                    "username": userName,
                     'message': 'Login successful',
                     'access_token': access_token,
                 }, status=200)
@@ -89,7 +91,8 @@ class AuthHandler:
             )
 
             return web.json_response({
-                "id": userId,                
+                "id": userId,
+                "username": userName,               
                 'access_token': new_access_token
             }, status=200)
 

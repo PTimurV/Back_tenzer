@@ -1,7 +1,7 @@
 from aiohttp import web
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import scoped_session
-from models import db_session, UserUpdate, User,UserInterest,UserInterestDisplay,UserSettingsDisplay,UserFriend,FriendDisplay
+from models import db_session, UserUpdate, User,UserInterest,UserInterestDisplay,UserSettingsDisplay,UserFriend,FriendDisplay,UserProfileDisplay
 from pydantic import ValidationError 
 from jwtAuth import JWTAuth
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
@@ -222,16 +222,17 @@ class UserHandler:
                 response_data = user_data.dict()
                 response_data['owner'] = owner
             else:
-                response_data = {
-                    'username': user.username,
-                    'name': user.name,
-                    'surname': user.surname,
-                    'img': user.img,
-                    'owner': owner
-                }
+                response_data = UserProfileDisplay(
+                    username=user.username,
+                    name=user.name,
+                    surname=user.surname,
+                    img=user.img,
+                    owner=owner,
+                    interests=interests
+                ).dict()
 
             response_data = json.dumps(response_data, default=str)
-            return web.json_response(text=response_data, status=200)  # Используем .dict() для корректной сериализации
+            return web.json_response(text=response_data, status=200)
 
         except ValidationError as e:
             return web.json_response({'error': str(e)}, status=400)
@@ -324,5 +325,50 @@ class UserHandler:
             return web.json_response({'error': 'Invalid token'}, status=401)
         except SQLAlchemyError as e:
             return web.json_response({'error': str(e)}, status=500)
+        
+    async def get_all_users(self, request):
+        token = request.headers.get('Authorization', '').split(' ')[-1]
+        try:
+            payload = JWTAuth.decode_access_token(token)
+            user_id = payload.get("user_id")
+            if not user_id:
+                raise web.HTTPUnauthorized(reason="Missing or invalid token")
+
+            # Получение списка друзей и заявок
+            friends_query = db_session.query(UserFriend).filter(
+                (UserFriend.user_id == user_id) | (UserFriend.friend_id == user_id)
+            ).all()
+
+            # Извлечение идентификаторов друзей и заявок
+            friend_ids = {f.friend_id if f.user_id == user_id else f.user_id for f in friends_query}
+
+            # Добавление своего ID в список исключений
+            friend_ids.add(user_id)
+
+            # Запрос для получения всех пользователей, кроме себя и друзей
+            users = db_session.query(User).filter(~User.id.in_(friend_ids)).all()
+
+            # Формирование ответа
+            response_data = [
+                {
+                    'id': user.id,
+                    'img': base64.b64encode(user.img).decode('utf-8') if user.img else None,
+                    'name': user.name,
+                    'surname': user.surname,
+                    'username': user.username
+                } for user in users
+            ]
+
+            return web.json_response({'users': response_data}, status=200)
+        
+        except SQLAlchemyError as e:
+            db_session.rollback()
+            return web.json_response({'error': str(e)}, status=500)
+        except Exception as e:
+            return web.json_response({'error': str(e)}, status=400)
+        
+
+
+    
 
 # Регистрация маршрута
