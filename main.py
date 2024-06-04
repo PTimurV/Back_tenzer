@@ -66,14 +66,10 @@ def create_app():
 
 async def on_startup(app):
     # Настройка планировщика задач
-    print(1)
     scheduler = AsyncIOScheduler()
-    print(2)
     scheduler.add_job(update_best_travels, 'interval', weeks=1)
     scheduler.add_job(update_travel_status, 'interval', days=1)
-    print(3)
     scheduler.start()
-    print(4)
     await update_best_travels()
     await update_travel_status()
     

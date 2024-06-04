@@ -20,7 +20,7 @@ class PlaceHandler:
             data = {}
             photos = []
 
-            # Чтение данных из формы
+        
             while True:
                 part = await reader.next()
                 if part is None:
@@ -29,7 +29,7 @@ class PlaceHandler:
                     data[part.name] = await part.text()
                 elif part.name == 'file':
                     photo_data = {
-                        'file': await part.read() # Используйте filename или другой метод для получения имени файла
+                        'file': await part.read() 
                     }
                     photos.append(photo_data)
 
@@ -50,7 +50,7 @@ class PlaceHandler:
             for photo_data in photos:
                 new_photo = PlacePhoto(
                     place_id=new_place.id,
-                    file=photo_data['file']  # Бинарные данные фотографи
+                    file=photo_data['file'] 
                 )
                 db_session.add(new_photo)
 
@@ -59,7 +59,7 @@ class PlaceHandler:
             # Воспользуемся relationship для загрузки данных фотографий
             db_session.refresh(new_place)
 
-            # Создаем ответ, используя Pydantic модели для формирования JSON
+        
             response_data = PlaceDisplay.from_orm(new_place)
             return web.json_response(response_data.dict(), status=201)
 
@@ -85,7 +85,7 @@ class PlaceHandler:
 
             # Удаление всех существующих мест для данного путешествия
             db_session.query(PlacesTravel).filter(PlacesTravel.users_travel_id == users_travel_id).delete()
-            db_session.commit()  # Применяем изменения после удаления
+            db_session.commit()  
 
             new_ids = []
             # Создание и добавление новых мест

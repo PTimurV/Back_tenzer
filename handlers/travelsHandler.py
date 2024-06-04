@@ -10,7 +10,6 @@ import base64
 from datetime import datetime
 class TravelHandler:
     async def create_user_travel(self, request):
-    # Получаем ID пользователя из заголовка Authorization
         token = request.headers.get('Authorization', '').split(' ')[-1]
     
     # Декодируем токен для получения payload

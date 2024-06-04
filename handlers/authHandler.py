@@ -52,7 +52,7 @@ class AuthHandler:
 
         try:
             user = db_session.query(User).filter(User.username == userName).first()
-            if user and bcrypt.checkpw(userPassword, user.password.encode('utf-8')):  # Проверка хеша пароля
+            if user and bcrypt.checkpw(userPassword, user.password.encode('utf-8')): 
                 access_token_expires = datetime.timedelta(minutes=JWTAuth.ACCESS_TOKEN_EXPIRE_MINUTES)
                 refresh_token_expires = datetime.timedelta(days=JWTAuth.REFRESH_TOKEN_EXPIRE_DAYS)
                 
@@ -64,7 +64,7 @@ class AuthHandler:
                     username=userName,
                     access_token=access_token,
                     refresh_token=refresh_token,
-                    img=user.img  # Предполагая, что у пользователя есть поле img
+                    img=user.img 
                 )
 
                 response = web.json_response(response_data.dict(), status=200)
@@ -103,7 +103,7 @@ class AuthHandler:
                 username=userName,
                 access_token=new_access_token,
                 refresh_token=refresh_token,
-                img=user.img  # Предполагая, что у пользователя есть поле img
+                img=user.img 
             )
 
             return web.json_response(response_data.dict(), status=200)
@@ -116,7 +116,6 @@ class AuthHandler:
             return web.json_response({'error': str(e)}, status=500)
         
     async def logout(self, request):
-        # Установить cookie с токеном обновления так, чтобы оно истекло
         response = web.Response(text="Logged out successfully.")
         response.del_cookie('refreshToken', path='/refresh_token')
         return response

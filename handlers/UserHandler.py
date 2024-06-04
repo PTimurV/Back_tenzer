@@ -15,69 +15,75 @@ class UserHandler:
         user_payload = JWTAuth.decode_access_token(token)
         user_id = user_payload.get('user_id')
 
-        reader = await request.multipart()
-        update_data = {}
-        file = None
-
-        # Читаем многокомпонентные данные
-        while True:
-            part = await reader.next()
-            if part is None:
-                break
-            if part.name == 'file' and part.filename:
-                # Сохраняем файл, если он есть
-                file = await part.read()
-            else:
-                # Собираем текстовые данные или обрабатываем JSON-строку для списка
-                if part.name == 'interests':
-                    # Пытаемся интерпретировать строку как JSON
-                    interests_str = await part.text()
-                    try:
-                        update_data['interests'] = json.loads(interests_str)
-                    except json.JSONDecodeError:
-                        # Если не удается декодировать строку, устанавливаем пустой список
-                        update_data['interests'] = []
-                else:
-                    update_data[part.name] = await part.text()
-
         try:
-            user_update = UserUpdate(**update_data)  # Создаем Pydantic модель из полученных данных
+            json_data = await request.json()
+            update_data = {}
 
-            # Находим пользователя в базе данных
-            user = db_session.query(User).filter(User.id == user_id).one_or_none()
-            if not user:
-                return web.json_response({'error': 'User not found'}, status=404)
+            # Обработка изображения
+            img_data = json_data.get('file')
+            if img_data:
+                header, encoded = img_data.split(',', 1)
+                file = base64.b64decode(encoded)
+            else:
+                file = None
 
-            # Обновляем поля пользователя
-            for field, value in user_update.dict(exclude={'interests'}).items():
-                setattr(user, field, value) if value is not None else None
+            # Обработка интересов
+            interests_str = json_data.get('interests', '[]')
+            try:
+                update_data['interests'] = json.loads(interests_str)
+            except json.JSONDecodeError:
+                update_data['interests'] = []
 
-            # Если есть файл, сохраняем его в базе данных
-            if file:
-                user.img = file  # Прямое сохранение двоичных данных
+            # Заполняем update_data остальными полями
+            update_data.update({
+                'name': json_data.get('name'),
+                'surname': json_data.get('surname'),
+                'role': json_data.get('role'),
+                'gender': json_data.get('gender'),
+                'birthday': json_data.get('birthday'),
+                'city': json_data.get('city')
+            })
 
-            # Синхронизация интересов пользователя
-            if 'interests' in user_update.dict():
-                current_interest_ids = {ui.interest_id for ui in user.user_interests}
-                new_interest_ids = set(user_update.interests)
+            try:
+                user_update = UserUpdate(**update_data)  # Создаем Pydantic модель из полученных данных
 
-                # Удаляем неактуальные интересы
-                for interest_id in current_interest_ids - new_interest_ids:
-                    db_session.query(UserInterest).filter_by(user_id=user_id, interest_id=interest_id).delete()
+                # Находим пользователя в базе данных
+                user = db_session.query(User).filter(User.id == user_id).one_or_none()
+                if not user:
+                    return web.json_response({'error': 'User not found'}, status=404)
 
-                # Добавляем новые интересы
-                for interest_id in new_interest_ids - current_interest_ids:
-                    db_session.add(UserInterest(user_id=user_id, interest_id=interest_id))
+                # Обновляем поля пользователя
+                for field, value in user_update.dict(exclude={'interests'}).items():
+                    setattr(user, field, value) if value is not None else None
 
-            db_session.commit()
-            return web.json_response({'message': 'User updated successfully'}, status=200)
+                # Если есть файл, сохраняем его в базе данных
+                if file:
+                    user.img = file  # Прямое сохранение двоичных данных
 
-        except ValidationError as e:
-            db_session.rollback()
-            return web.json_response({'error': str(e)}, status=400)
-        except SQLAlchemyError as e:
-            db_session.rollback()
-            return web.json_response({'error': str(e)}, status=500)
+                # Синхронизация интересов пользователя
+                if 'interests' in user_update.dict():
+                    current_interest_ids = {ui.interest_id for ui in user.user_interests}
+                    new_interest_ids = set(user_update.interests)
+
+                    # Удаляем неактуальные интересы
+                    for interest_id in current_interest_ids - new_interest_ids:
+                        db_session.query(UserInterest).filter_by(user_id=user_id, interest_id=interest_id).delete()
+
+                    # Добавляем новые интересы
+                    for interest_id in new_interest_ids - current_interest_ids:
+                        db_session.add(UserInterest(user_id=user_id, interest_id=interest_id))
+
+                db_session.commit()
+                return web.json_response({'message': 'User updated successfully'}, status=200)
+
+            except ValidationError as e:
+                db_session.rollback()
+                return web.json_response({'error': str(e)}, status=400)
+            except SQLAlchemyError as e:
+                db_session.rollback()
+                return web.json_response({'error': str(e)}, status=500)
+        except json.JSONDecodeError as e:
+            return web.json_response({'error': 'Invalid JSON'}, status=400)
         
     async def get_user_settings(self, request):
         token = request.headers.get('Authorization', '').split(' ')[-1]
