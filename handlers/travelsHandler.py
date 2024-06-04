@@ -233,9 +233,15 @@ class TravelHandler:
                 score=user_travel.score,
                 img=user_travel.img,
                 status=user_travel.status,
-                
                 members=members
             ).dict()
+
+            # Добавление логов для диагностики
+            print("Response data: ", response_data)
+            
+            # Проверка, были ли изменения в данных
+            if not response_data:  # Если response_data пуст, значит данные не изменились
+                return web.json_response({'message': 'No changes in data'}, status=304)
 
             return web.json_response(response_data, status=200)
 
