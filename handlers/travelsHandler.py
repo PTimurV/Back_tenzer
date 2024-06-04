@@ -58,7 +58,7 @@ class TravelHandler:
 
             # Логи для диагностики
             print("Received JSON data:", json_data)
-            
+
             # Обновление данных о путешествии
             travel.title = json_data.get('title', travel.title)
             travel.description = json_data.get('description', travel.description)
@@ -113,25 +113,22 @@ class TravelHandler:
                 # Подготовка данных о местах для ответа
                 response_places = [PlaceTravelDisplay.from_orm(place).dict() for place in all_new_places]
 
-            # Проверка изменений перед коммитом
-            db_session.flush()  # Обновление данных в сессии без фиксации
-            if db_session.is_modified(travel):
-                db_session.commit()
-                response_data = {
-                    'id': travel.id,
-                    'message': 'Travel updated successfully',
-                    'places': response_places if places else []
-                }
-                return web.json_response(response_data, status=200)
-            else:
-                return web.json_response({'message': 'No changes detected'}, status=304)
+            # Коммит изменений
+            db_session.commit()
+
+            response_data = {
+                'id': travel.id,
+                'message': 'Travel updated successfully',
+                'places': response_places if places else []
+            }
+
+            return web.json_response(response_data, status=200)
 
         except SQLAlchemyError as e:
             db_session.rollback()
             return web.json_response({'error': str(e)}, status=500)
         except Exception as e:
             return web.json_response({'error': str(e)}, status=500)
-
 
 
 
