@@ -203,7 +203,7 @@ class TravelHandler:
 
             places = [
                 PlaceInfo(
-                    id=place_travel.place.id,
+                    place_id=place_travel.place.id,
                     title=place_travel.place.title,
                     description=place_travel.place.description,
                     address=place_travel.place.address,
@@ -225,6 +225,7 @@ class TravelHandler:
             ]
 
             response_data = TravelDetailDisplay(
+                places=places,
                 id=user_travel.id,
                 owner_user_id=user_travel.owner_user_id,
                 title=user_travel.title,
@@ -232,7 +233,7 @@ class TravelHandler:
                 score=user_travel.score,
                 img=user_travel.img,
                 status=user_travel.status,
-                places=places,
+                
                 members=members
             ).dict()
 

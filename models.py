@@ -335,7 +335,7 @@ class PhotoDisplay(BaseModel):
         return v
 
 class PlaceInfo(BaseModel):
-    id: int
+    place_id: int
     title: str
     description: Optional[str] = None
     address: Optional[str] = None
