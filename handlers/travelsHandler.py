@@ -477,7 +477,6 @@ class TravelHandler:
             upcoming_travels = db_session.query(UsersTravel).filter(
                 UsersTravel.owner_user_id == user_id,
                 UsersTravel.status == 'creating',
-                UsersTravel.start_date >= datetime.today()
             ).order_by(
                 UsersTravel.start_date.asc()
             ).limit(5).all()
