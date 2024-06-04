@@ -39,8 +39,7 @@ class TravelHandler:
         except SQLAlchemyError as e:
             db_session.rollback()
             return web.json_response({'error': str(e)}, status=500)
-        
-    import base64
+
 
     async def update_user_travel(self, request):
         token = request.headers.get('Authorization', '').split(' ')[-1]
