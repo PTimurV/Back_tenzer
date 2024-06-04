@@ -56,6 +56,9 @@ class TravelHandler:
             if not travel:
                 return web.json_response({'error': 'Travel not found'}, status=404)
 
+            # Логи для диагностики
+            print("Received JSON data:", json_data)
+            
             # Обновление данных о путешествии
             travel.title = json_data.get('title', travel.title)
             travel.description = json_data.get('description', travel.description)
@@ -110,17 +113,23 @@ class TravelHandler:
                 # Подготовка данных о местах для ответа
                 response_places = [PlaceTravelDisplay.from_orm(place).dict() for place in all_new_places]
 
-            db_session.commit()
-
-            response_data = {
-                'id': travel.id,
-                'message': 'Travel updated successfully'
-            }
-
-            return web.json_response(response_data, status=200)
+            # Проверка изменений перед коммитом
+            db_session.flush()  # Обновление данных в сессии без фиксации
+            if db_session.is_modified(travel):
+                db_session.commit()
+                response_data = {
+                    'id': travel.id,
+                    'message': 'Travel updated successfully',
+                    'places': response_places if places else []
+                }
+                return web.json_response(response_data, status=200)
+            else:
+                return web.json_response({'message': 'No changes detected'}, status=304)
 
         except SQLAlchemyError as e:
             db_session.rollback()
+            return web.json_response({'error': str(e)}, status=500)
+        except Exception as e:
             return web.json_response({'error': str(e)}, status=500)
 
 
@@ -233,15 +242,9 @@ class TravelHandler:
                 score=user_travel.score,
                 img=user_travel.img,
                 status=user_travel.status,
+                
                 members=members
             ).dict()
-
-            # Добавление логов для диагностики
-            print("Response data: ", response_data)
-            
-            # Проверка, были ли изменения в данных
-            if not response_data:  # Если response_data пуст, значит данные не изменились
-                return web.json_response({'message': 'No changes in data'}, status=304)
 
             return web.json_response(response_data, status=200)
 
