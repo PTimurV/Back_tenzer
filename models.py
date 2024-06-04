@@ -341,7 +341,7 @@ class PlaceInfo(BaseModel):
     type: Optional[str] = None
     coordinates: Optional[str] = None
     travel_comment: Optional[str] = None
-    travel_date: Optional[date] = None
+    travel_date: Optional[str] = None
     order: Optional[int] = None
     photos: List[PhotoDisplay]
 

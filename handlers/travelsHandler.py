@@ -179,7 +179,7 @@ class TravelHandler:
                     type=place_travel.place.type,
                     coordinates=place_travel.place.coordinates,
                     travel_comment=place_travel.description,
-                    travel_date=place_travel.date,
+                    travel_date=place_travel.date.isoformat() if place_travel.date else None,
                     order=place_travel.order,
                     photos=[PhotoDisplay.from_orm(photo) for photo in place_travel.place.photos if photo.file is not None]
                 ) for place_travel in user_travel.places
