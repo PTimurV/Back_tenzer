@@ -1,7 +1,7 @@
 from aiohttp import web
 from sqlalchemy.exc import SQLAlchemyError
 from models import db_session, Place,PlacePhoto
-from models import PlaceCreate, PlaceDisplay,PhotoBase,PhotoDisplay,PlaceTravelCreate,PlacesTravel,PlaceTravelDisplay,PlaceFeedback,PlaceDisplayId2,FeedbackDisplayId,PlaceDisplayId,PhotoDisplayId
+from models import PlaceCreate, PlaceDisplay,PlacesTravel,PlaceTravelDisplay,PlaceFeedback,PlaceDisplayId2,FeedbackDisplayId,PlaceDisplayId,PhotoDisplayId
 from jwtAuth import JWTAuth
 from pydantic import ValidationError  # Добавляем импорт
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError

@@ -8,6 +8,7 @@ from datetime import date
 import os
 from sqlalchemy import LargeBinary
 import base64
+import imghdr
 
 Base = declarative_base()
 
@@ -168,14 +169,23 @@ class BestTravel(Base):
 
 # Pydantic models for User
 
-class FriendDisplay(BaseModel):
-    friend_id: int
+class AuthResponse(BaseModel):
+    id: int
     username: str
-    name: Optional[str]
-    surname: Optional[str]
-    img: Optional[str]
-    status: int
+    access_token: str
+    img: Optional[str] = None  # Изменение типа на str
 
+    @validator('img', pre=True, allow_reuse=True)
+    def convert_bytes_to_base64(cls, v):
+        if v is None:
+            return None  # Возвращаем None, если нет файла
+        if isinstance(v, bytes):
+            image_type = imghdr.what(None, h=v)  # Определяем тип изображения
+            if image_type in ['jpeg', 'png']:
+                return f"data:image/{image_type};base64,{base64.b64encode(v).decode('utf-8')}"
+            else:
+                raise ValueError('Unsupported image type')
+        return v
 class UserBase(BaseModel):
     email: EmailStr
     username: str
@@ -195,14 +205,6 @@ class UserUpdate(BaseModel):
     class Config:
         from_attributes = True
 
-class UserCreate(UserBase):
-    password: str
-
-class UserDisplay(UserBase):
-    id: int
-    city: Optional[str]
-    birthday: Optional[date]
-
 class UserInterestDisplay(BaseModel):
     interest_id: int
     name: str
@@ -220,10 +222,62 @@ class UserProfileDisplay(BaseModel):
             date: lambda x: x.isoformat() if x else None
         }
     @validator('img', pre=True, allow_reuse=True)
-    def convert_img_to_base64(cls, value):
-        if value is not None:
-            return f"data:image/png;base64,{base64.b64encode(value).decode('utf-8')}"
-        return value
+    def convert_bytes_to_base64(cls, v):
+        if v is None:
+            return None  # Возвращаем None, если нет файла
+        if isinstance(v, bytes):
+            image_type = imghdr.what(None, h=v)  # Определяем тип изображения
+            if image_type in ['jpeg', 'png']:
+                return f"data:image/{image_type};base64,{base64.b64encode(v).decode('utf-8')}"
+            else:
+                raise ValueError('Unsupported image type')
+        return v
+class FriendInfo(BaseModel):
+    friend_id: int
+    name: str
+    surname: str
+    img: Optional[str]
+    username: str
+    status: int
+
+    @validator('img', pre=True, allow_reuse=True)
+    def convert_bytes_to_base64(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, bytes):
+            image_type = imghdr.what(None, h=v)
+            if image_type in ['jpeg', 'png']:
+                return f"data:image/{image_type};base64,{base64.b64encode(v).decode('utf-8')}"
+            else:
+                raise ValueError('Unsupported image type')
+        return v
+
+class FriendsResponse(BaseModel):
+    pending_sent: List[FriendInfo]
+    pending_received: List[FriendInfo]
+    friends: List[FriendInfo]
+
+class UserInfo(BaseModel):
+    id: int
+    img: Optional[str]
+    name: Optional[str]
+    surname: Optional[str]
+    username: str
+
+    @validator('img', pre=True, allow_reuse=True)
+    def convert_bytes_to_base64(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, bytes):
+            image_type = imghdr.what(None, h=v)
+            if image_type in ['jpeg', 'png']:
+                return f"data:image/{image_type};base64,{base64.b64encode(v).decode('utf-8')}"
+            else:
+                raise ValueError('Unsupported image type')
+        return v
+
+class UsersResponse(BaseModel):
+    users: List[UserInfo]
 
 class UserSettingsDisplay(UserBase):
     id: int
@@ -241,69 +295,81 @@ class UserSettingsDisplay(UserBase):
             date: lambda x: x.isoformat() if x else None
         }
     @validator('img', pre=True, allow_reuse=True)
-    def convert_img_to_base64(cls, value):
-        if value is not None:
-            return f"data:image/png;base64,{base64.b64encode(value).decode('utf-8')}"
-        return value
-# Pydantic models for Interest
-class InterestBase(BaseModel):
-    name: str
-
-class InterestDisplay(InterestBase):
-    id: int
-
-
-
-
-
-
-# Pydantic models for Travel
-class TravelBase(BaseModel):
-    title: str
-    description: Optional[str]
-
-class AddMemberRequest(BaseModel):
-    user_id: int  # ID пользователя, которого добавляем
-
-class TravelCreate(TravelBase):
-    user_id: int
-
-class TravelDisplay(TravelBase):
-    id: int
-    mean_score: Optional[float]
-    img: Optional[str]
-    status: str
-    count_users: Optional[int]
-
-class PhotoDisplay(BaseModel):
-    id: int
-    file: str
-    class Config:
-        from_attributes = True
-    @validator('file', pre=True, allow_reuse=True)
     def convert_bytes_to_base64(cls, v):
         if v is None:
             return None  # Возвращаем None, если нет файла
         if isinstance(v, bytes):
-            return f"data:image/jpeg;base64,{base64.b64encode(v).decode('utf-8')}"
+            image_type = imghdr.what(None, h=v)  # Определяем тип изображения
+            if image_type in ['jpeg', 'png']:
+                return f"data:image/{image_type};base64,{base64.b64encode(v).decode('utf-8')}"
+            else:
+                raise ValueError('Unsupported image type')
+        return v
+
+
+
+# Pydantic models for Travel
+
+class AddMemberRequest(BaseModel):
+    user_id: int  # ID пользователя, которого добавляем
+
+
+class PhotoDisplay(BaseModel):
+    id: int
+    file: str
+
+    class Config:
+        from_attributes = True
+
+    @validator('file', pre=True, allow_reuse=True)
+    def convert_bytes_to_base64(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, bytes):
+            image_type = imghdr.what(None, h=v)
+            if image_type in ['jpeg', 'png']:
+                return f"data:image/{image_type};base64,{base64.b64encode(v).decode('utf-8')}"
+            else:
+                raise ValueError('Unsupported image type')
         return v
 
 class PlaceInfo(BaseModel):
     id: int
     title: str
-    description: str
-    address: str
-    type: str
-    coordinates: str
+    description: Optional[str] = None
+    address: Optional[str] = None
+    type: Optional[str] = None
+    coordinates: Optional[str] = None
     travel_comment: Optional[str] = None
     travel_date: Optional[date] = None
     order: Optional[int] = None
     photos: List[PhotoDisplay]
+
     class Config:
         from_attributes = True
         json_encoders = {
             date: lambda x: x.isoformat() if x else None
         }
+
+class MemberInfo(BaseModel):
+    user_id: int
+    username: str
+    img: Optional[str]
+
+    class Config:
+        from_attributes = True
+
+    @validator('img', pre=True, allow_reuse=True)
+    def convert_bytes_to_base64(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, bytes):
+            image_type = imghdr.what(None, h=v)
+            if image_type in ['jpeg', 'png']:
+                return f"data:image/{image_type};base64,{base64.b64encode(v).decode('utf-8')}"
+            else:
+                raise ValueError('Unsupported image type')
+        return v
 
 class TravelInfoDisplay(BaseModel):
     id: int
@@ -316,7 +382,88 @@ class TravelInfoDisplay(BaseModel):
     end_date: Optional[date]
     places: Optional[List[PlaceInfo]]
 
+    class Config:
+        from_attributes = True
 
+    @validator('img', pre=True, allow_reuse=True)
+    def convert_bytes_to_base64(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, bytes):
+            image_type = imghdr.what(None, h=v)
+            if image_type in ['jpeg', 'png']:
+                return f"data:image/{image_type};base64,{base64.b64encode(v).decode('utf-8')}"
+            else:
+                raise ValueError('Unsupported image type')
+        return v
+
+class TravelDetailDisplay(BaseModel):
+    id: int
+    owner_user_id: int
+    title: Optional[str]
+    description: Optional[str]
+    score: Optional[float]
+    img: Optional[str]
+    status: Optional[str]
+    places: Optional[List[PlaceInfo]]
+    members: Optional[List[MemberInfo]]
+
+    class Config:
+        from_attributes = True
+
+    @validator('img', pre=True, allow_reuse=True)
+    def convert_bytes_to_base64(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, bytes):
+            image_type = imghdr.what(None, h=v)
+            if image_type in ['jpeg', 'png']:
+                return f"data:image/{image_type};base64,{base64.b64encode(v).decode('utf-8')}"
+            else:
+                raise ValueError('Unsupported image type')
+        return v
+    
+
+class UserTravelInfo(BaseModel):
+    id: int
+    owner_user_id: int
+    title: Optional[str]
+    description: Optional[str]
+    score: Optional[float]
+    img: Optional[str]
+    status: Optional[str]
+    places: Optional[List[PlaceInfo]]
+    members: Optional[List[MemberInfo]]
+
+    class Config:
+        from_attributes = True
+        json_encoders = {
+            date: lambda v: v.isoformat() if v else None
+        }
+
+    @validator('img', pre=True, allow_reuse=True)
+    def convert_bytes_to_base64(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, bytes):
+            image_type = imghdr.what(None, h=v)
+            if image_type in ['jpeg', 'png']:
+                return f"data:image/{image_type};base64,{base64.b64encode(v).decode('utf-8')}"
+            else:
+                raise ValueError('Unsupported image type')
+        return v
+
+class TravelDetailDisplayExtended(BaseModel):
+    id: int
+    mean_score: Optional[float]
+    count_users: Optional[int]
+    user_travel: Optional[UserTravelInfo]
+
+    class Config:
+        from_attributes = True
+        json_encoders = {
+            date: lambda v: v.isoformat() if v else None
+        }
 
 # Pydantic models for Place
 class PlaceBase(BaseModel):
@@ -335,7 +482,11 @@ class PhotoDisplayId(BaseModel):
         if v is None:
             return None  # Возвращаем None, если нет файла
         if isinstance(v, bytes):
-            return f"data:image/jpeg;base64,{base64.b64encode(v).decode('utf-8')}"
+            image_type = imghdr.what(None, h=v)  # Определяем тип изображения
+            if image_type in ['jpeg', 'png']:
+                return f"data:image/{image_type};base64,{base64.b64encode(v).decode('utf-8')}"
+            else:
+                raise ValueError('Unsupported image type')
         return v
 
 class FeedbackDisplayId(BaseModel):
@@ -382,8 +533,14 @@ class PhotoDisplay(PhotoBase):
         from_attributes = True
     @validator('file', pre=True, allow_reuse=True)
     def convert_bytes_to_base64(cls, v):
+        if v is None:
+            return None  # Возвращаем None, если нет файла
         if isinstance(v, bytes):
-            return f"data:image/jpeg;base64,{base64.b64encode(v).decode('utf-8')}"
+            image_type = imghdr.what(None, h=v)  # Определяем тип изображения
+            if image_type in ['jpeg', 'png']:
+                return f"data:image/{image_type};base64,{base64.b64encode(v).decode('utf-8')}"
+            else:
+                raise ValueError('Unsupported image type')
         return v
 
 class PlaceDisplay(PlaceBase):
@@ -398,30 +555,7 @@ class PlaceFeedbackBase(BaseModel):
     score: float
     description: Optional[str]
 
-class PlaceFeedbackDisplay(PlaceFeedbackBase):
-    id: int
-    place_id: int
-
-class PlaceCommentBase(BaseModel):
-    comment: str
-    date: date
-
-class PlaceCommentDisplay(PlaceCommentBase):
-    id: int
-    user_id: int
-    place_travel_id: int
-
-
-
 # Additional models for many-to-many relationships
-
-class UserFriendDisplay(BaseModel):
-    user_id: int
-    friend_id: int
-
-class UsersTravelMemberDisplay(BaseModel):
-    users_travel_id: int
-    user_id: int
 
 class PlaceTravelBase(BaseModel):
     date: Optional[date]
@@ -433,10 +567,6 @@ class PlaceTravelBase(BaseModel):
             date: lambda x: x.isoformat()
         }
 
-class PlaceTravelCreate(PlaceTravelBase):
-    users_travel_id: int
-    place_id: int
-
 class PlaceTravelDisplay(PlaceTravelBase):
     id: int
     users_travel_id: int
@@ -447,10 +577,6 @@ class PlaceTravelDisplay(PlaceTravelBase):
             date: lambda x: x.isoformat()
         }
 
-
-
-
-
 #Для эндпоинта просмотра детальной инфы о маршурте через id
 class PhotoDisplay2(BaseModel):
     id: int
@@ -459,50 +585,12 @@ class PhotoDisplay2(BaseModel):
         from_attributes = True
     @validator('file', pre=True, allow_reuse=True)
     def convert_bytes_to_base64(cls, v):
+        if v is None:
+            return None  # Возвращаем None, если нет файла
         if isinstance(v, bytes):
-            return f"data:image/jpeg;base64,{base64.b64encode(v).decode('utf-8')}"
+            image_type = imghdr.what(None, h=v)  # Определяем тип изображения
+            if image_type in ['jpeg', 'png']:
+                return f"data:image/{image_type};base64,{base64.b64encode(v).decode('utf-8')}"
+            else:
+                raise ValueError('Unsupported image type')
         return v
-
-class PlaceDisplay2(BaseModel):
-    id: int
-    title: str
-    description: str
-    address: str
-    type: str
-    coordinates: str
-    status: str
-    mean_score: float
-    photos: List[PhotoDisplay2]= []
-    class Config:
-        from_attributes = True
-
-class PlaceTravelDisplay2(BaseModel):
-    date: date
-    description: str
-    order: int
-    place: PlaceDisplay2
-    class Config:
-        from_attributes = True
-
-class TravelMemberDisplay2(BaseModel):
-    user_id: int
-    username: Optional[str]
-    img: Optional[str]
-    class Config:
-        from_attributes = True
-
-class UsersTravelDisplay2(BaseModel):
-    id: int
-    owner_user_id: int
-    title: str
-    description: str
-    score: Optional[float]
-    img: Optional[str]
-    status: str
-    places: List[PlaceTravelDisplay2] = []
-    members: List[TravelMemberDisplay2] = []
-    class Config:
-        from_attributes = True
-        json_encoders = {
-            date: lambda x: x.isoformat()
-        }

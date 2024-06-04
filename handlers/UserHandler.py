@@ -1,7 +1,7 @@
 from aiohttp import web
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import scoped_session
-from models import db_session, UserUpdate, User,UserInterest,UserInterestDisplay,UserSettingsDisplay,UserFriend,FriendDisplay,UserProfileDisplay
+from models import db_session, UserUpdate, User,UserInterest,UserInterestDisplay,UserSettingsDisplay,UserFriend,UserProfileDisplay,UserInfo, FriendInfo,FriendsResponse,UsersResponse
 from pydantic import ValidationError 
 from jwtAuth import JWTAuth
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
@@ -10,50 +10,6 @@ import json
 import base64
 
 class UserHandler:
-    # async def update_user(self,request):
-    #     token = request.headers.get('Authorization', '').split(' ')[-1]
-    #     user_payload = JWTAuth.decode_access_token(token)
-    #     user_id = user_payload.get('user_id')
-    #     json_data = await request.json()
-    #     try:
-    #         update_data = UserUpdate(**json_data)
-            
-    #         # Находим пользователя в базе данных
-    #         user = db_session.query(User).filter(User.id == user_id).one_or_none()
-    #         if not user:
-    #             return web.json_response({'error': 'User not found'}, status=404)
-
-    #         # Обновляем поля пользователя
-    #         for field, value in update_data.dict(exclude={'interests'}).items():
-    #             setattr(user, field, value) if value is not None else None
-
-    #         # Синхронизация интересов пользователя
-    #         current_interest_ids = {ui.interest_id for ui in user.user_interests}
-    #         new_interest_ids = set(update_data.interests)
-
-    #         # Удаляем неактуальные интересы
-    #         for interest_id in current_interest_ids - new_interest_ids:
-    #             db_session.query(UserInterest).filter_by(user_id=user_id, interest_id=interest_id).delete()
-
-    #         # Добавляем новые интересы
-    #         for interest_id in new_interest_ids - current_interest_ids:
-    #             db_session.add(UserInterest(user_id=user_id, interest_id=interest_id))
-
-    #         db_session.commit()
-
-    #         return web.json_response({'message': 'User updated successfully'}, status=200)
-
-    #     except ValidationError as e:
-    #         db_session.rollback()
-    #         return web.json_response({'error': str(e)}, status=400)
-    #     except ExpiredSignatureError:
-    #         return web.json_response({'error': 'Token has expired'}, status=401)
-    #     except InvalidTokenError:
-    #         return web.json_response({'error': 'Invalid token'}, status=401)
-    #     except SQLAlchemyError as e:
-    #         db_session.rollback()
-    #         return web.json_response({'error': str(e)}, status=500)
-        
     async def update_user(self, request):
         token = request.headers.get('Authorization', '').split(' ')[-1]
         user_payload = JWTAuth.decode_access_token(token)
@@ -122,39 +78,6 @@ class UserHandler:
         except SQLAlchemyError as e:
             db_session.rollback()
             return web.json_response({'error': str(e)}, status=500)
-                
-    # async def get_user_settings(self, request):
-    #     token = request.headers.get('Authorization', '').split(' ')[-1]
-    #     try:
-    #         payload = JWTAuth.decode_access_token(token)
-    #         user_id = payload.get("user_id")
-    #         if not user_id:
-    #             raise web.HTTPUnauthorized(reason="Missing or invalid token")
-
-    #         user = db_session.query(User).filter(User.id == user_id).first()
-    #         if not user:
-    #             return web.json_response({'message': 'User not found'}, status=404)
-            
-    #         # Подготовка данных о интересах пользователя
-    #         interests = [
-    #             UserInterestDisplay(interest_id=ui.interest.id, name=ui.interest.name)
-    #             for ui in user.user_interests
-    #         ]
-
-    #         # Подготовка и отправка основных данных пользователя
-    #         user_data = UserSettingsDisplay.from_orm(user)
-    #         user_data.interests = interests
-    #         response_data = json.dumps(user_data.dict(), default=str)
-    #         return web.json_response(text=response_data, status=200)  # Используем .dict() для корректной сериализации
-
-    #     except ValidationError as e:
-    #         return web.json_response({'error': str(e)}, status=400)
-    #     except ExpiredSignatureError:
-    #         return web.json_response({'error': 'Token has expired'}, status=401)
-    #     except InvalidTokenError:
-    #         return web.json_response({'error': 'Invalid token'}, status=401)
-    #     except SQLAlchemyError as e:
-    #         return web.json_response({'error': str(e)}, status=500)
         
     async def get_user_settings(self, request):
         token = request.headers.get('Authorization', '').split(' ')[-1]
@@ -191,6 +114,7 @@ class UserHandler:
             return web.json_response({'error': 'Invalid token'}, status=401)
         except SQLAlchemyError as e:
             return web.json_response({'error': str(e)}, status=500)
+        
 
     async def get_user_profile(self, request):
         profile_id = int(request.match_info['id'])
@@ -249,7 +173,6 @@ class UserHandler:
             if not user_id:
                 raise web.HTTPUnauthorized(reason="Missing or invalid token")
 
-            # Загрузка друзей из базы данных
             from sqlalchemy import or_
 
             friends = db_session.query(UserFriend).filter(
@@ -262,60 +185,58 @@ class UserHandler:
                 joinedload(UserFriend.friend)
             ).all()
 
-            
-
-            # Подготовка данных для вывода
             response_data = {'pending_sent': [], 'pending_received': [], 'friends':[]}
             for friendship in friends:
                 if friendship.status == 0:
                     if friendship.user_id == user_id:
                         # Текущий пользователь является инициатором
-                        friend_data = {
-                            "friend_id": friendship.friend_id,
-                            "name": friendship.friend.name,
-                            "surname": friendship.friend.surname,
-                            "img": base64.b64encode(friendship.friend.img).decode('utf-8') if friendship.friend.img else None,
-                            "username": friendship.friend.username,
-                            "status": friendship.status
-                        }
+                        friend_data = FriendInfo(
+                            friend_id=friendship.friend_id,
+                            name=friendship.friend.name,
+                            surname=friendship.friend.surname,
+                            img=friendship.friend.img,
+                            username=friendship.friend.username,
+                            status=friendship.status
+                        )
                         response_data['pending_sent'].append(friend_data)
                     else:
                         # Текущий пользователь является получателем
-                        friend_data = {
-                            "friend_id": friendship.user_id,
-                            "name": friendship.user.name,
-                            "surname": friendship.user.surname,
-                            "img": base64.b64encode(friendship.user.img).decode('utf-8') if friendship.user.img else None,
-                            "username": friendship.user.username,
-                            "status": friendship.status
-                        }
+                        friend_data = FriendInfo(
+                            friend_id=friendship.user_id,
+                            name=friendship.user.name,
+                            surname=friendship.user.surname,
+                            img=friendship.user.img,
+                            username=friendship.user.username,
+                            status=friendship.status
+                        )
                         response_data['pending_received'].append(friend_data)
                 else: 
                     if friendship.user_id == user_id:
                         # Текущий пользователь является инициатором
-                        friend_data = {
-                            "friend_id": friendship.friend_id,
-                            "name": friendship.friend.name,
-                            "surname": friendship.friend.surname,
-                            "img": base64.b64encode(friendship.friend.img).decode('utf-8') if friendship.friend.img else None,
-                            "username": friendship.friend.username,
-                            "status": friendship.status
-                        }
+                        friend_data = FriendInfo(
+                            friend_id=friendship.friend_id,
+                            name=friendship.friend.name,
+                            surname=friendship.friend.surname,
+                            img=friendship.friend.img,
+                            username=friendship.friend.username,
+                            status=friendship.status
+                        )
                         response_data['friends'].append(friend_data)
                     else:
                         # Текущий пользователь является получателем
-                        friend_data = {
-                            "friend_id": friendship.user_id,
-                            "name": friendship.user.name,
-                            "surname": friendship.user.surname,
-                            "img": base64.b64encode(friendship.user.img).decode('utf-8') if friendship.user.img else None,
-                            "username": friendship.user.username,
-                            "status": friendship.status
-                        }
+                        friend_data = FriendInfo(
+                            friend_id=friendship.user_id,
+                            name=friendship.user.name,
+                            surname=friendship.user.surname,
+                            img=friendship.user.img,
+                            username=friendship.user.username,
+                            status=friendship.status
+                        )
                         response_data['friends'].append(friend_data)
 
-
-            return web.json_response(response_data, status=200)
+            # Преобразуем словарь в модель Pydantic для валидации и сериализации
+            response_model = FriendsResponse(**response_data)
+            return web.json_response(response_model.dict(), status=200)
 
         except ValidationError as e:
             return web.json_response({'error': str(e)}, status=400)
@@ -325,6 +246,7 @@ class UserHandler:
             return web.json_response({'error': 'Invalid token'}, status=401)
         except SQLAlchemyError as e:
             return web.json_response({'error': str(e)}, status=500)
+
         
     async def get_all_users(self, request):
         token = request.headers.get('Authorization', '').split(' ')[-1]
@@ -350,17 +272,19 @@ class UserHandler:
 
             # Формирование ответа
             response_data = [
-                {
-                    'id': user.id,
-                    'img': base64.b64encode(user.img).decode('utf-8') if user.img else None,
-                    'name': user.name,
-                    'surname': user.surname,
-                    'username': user.username
-                } for user in users
+                UserInfo(
+                    id=user.id,
+                    img=user.img,
+                    name=user.name,
+                    surname=user.surname,
+                    username=user.username
+                ) for user in users
             ]
 
-            return web.json_response({'users': response_data}, status=200)
-        
+            # Преобразуем список моделей Pydantic в словарь
+            response_model = UsersResponse(users=response_data)
+            return web.json_response(response_model.dict(), status=200)
+
         except SQLAlchemyError as e:
             db_session.rollback()
             return web.json_response({'error': str(e)}, status=500)

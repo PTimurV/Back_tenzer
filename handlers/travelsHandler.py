@@ -1,6 +1,6 @@
 from aiohttp import web
 from sqlalchemy.exc import SQLAlchemyError
-from models import db_session, Travel, Place,UsersTravel, PlaceInfo,PlacesTravel,TravelInfoDisplay,PhotoDisplay,AddMemberRequest,UsersTravelMember,User,UsersTravelDisplay2,PhotoDisplay2,BestTravel,UserFriend
+from models import db_session, Travel, Place,UsersTravel, PlaceInfo,PlacesTravel,TravelInfoDisplay,PhotoDisplay,AddMemberRequest,UsersTravelMember,User,PhotoDisplay2,BestTravel,UserFriend,TravelDetailDisplay,MemberInfo,UserTravelInfo,TravelDetailDisplayExtended
 from jwtAuth import JWTAuth
 from pydantic import ValidationError  # Добавляем импорт
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
@@ -9,62 +9,6 @@ import json
 import base64
 from datetime import datetime
 class TravelHandler:
-    # async def create_user_travel(self, request):
-    #     token = request.headers.get('Authorization', '').split(' ')[-1]
-    #     user_payload = JWTAuth.decode_access_token(token)
-    #     owner_user_id = user_payload.get('user_id')
-
-    #     if not owner_user_id:
-    #         return web.json_response({'error': 'Unauthorized access'}, status=401)
-
-    #     reader = await request.multipart()
-    #     title = None
-    #     description = None
-    #     img = None
-
-    #     # Чтение данных из формы
-    #     while True:
-    #         part = await reader.next()
-    #         if part is None:
-    #             break
-    #         if part.name == 'title':
-    #             title = await part.text()
-    #         elif part.name == 'description':
-    #             description = await part.text()
-    #         elif part.name == 'img':
-    #             img = await part.read()  # Читаем бинарные данные изображения
-
-    #     if not title or not description:
-    #         return web.json_response({'error': 'Missing title or description'}, status=400)
-
-    #     try:
-    #         # Создаем новый объект UsersTravel
-    #         new_users_travel = UsersTravel(
-    #             owner_user_id=owner_user_id,
-    #             title=title,
-    #             description=description,
-    #             img=img,
-    #             status='creating'  # Статус по умолчанию
-    #         )
-    #         db_session.add(new_users_travel)
-    #         db_session.commit()
-
-    #         # Кодируем изображение в base64 для ответа, если оно есть
-    #         img_base64 = f"data:image/png;base64,{base64.b64encode(img).decode('utf-8')}" if img else None
-
-    #         return web.json_response({
-    #             'id': new_users_travel.id,
-    #             'title': title,
-    #             'description': description,
-    #             'status': new_users_travel.status,
-    #             'img': img_base64
-    #         }, status=201)
-
-    #     except SQLAlchemyError as e:
-    #         db_session.rollback()
-    #         return web.json_response({'error': str(e)}, status=500)
-
-
     async def create_user_travel(self, request):
     # Получаем ID пользователя из заголовка Authorization
         token = request.headers.get('Authorization', '').split(' ')[-1]
@@ -171,7 +115,7 @@ class TravelHandler:
                 owner_user_id = travel.owner_user_id,
                 title=travel.title,
                 description=travel.description,
-                img=base64.b64encode(travel.img).decode('utf-8') if travel.img else None,
+                img=travel.img,
                 status=travel.status,
                 start_date=travel.start_date,
                 end_date=travel.end_date,
@@ -226,42 +170,41 @@ class TravelHandler:
             if not user_travel:
                 return web.json_response({'message': 'Travel not found'}, status=404)
 
-            # Serialize places
             places = [
-                {
-                    'id': place_travel.place.id,
-                    'title': place_travel.place.title,
-                    'description': place_travel.place.description,
-                    'address': place_travel.place.address,
-                    'type': place_travel.place.type,
-                    'coordinates': place_travel.place.coordinates,
-                    'status': place_travel.place.status,
-                    'mean_score': place_travel.place.mean_score,
-                    'photos': [PhotoDisplay2.from_orm(photo).dict() for photo in place_travel.place.photos if photo.file is not None]
-                } for place_travel in user_travel.places
+                PlaceInfo(
+                    id=place_travel.place.id,
+                    title=place_travel.place.title,
+                    description=place_travel.place.description,
+                    address=place_travel.place.address,
+                    type=place_travel.place.type,
+                    coordinates=place_travel.place.coordinates,
+                    travel_comment=place_travel.description,
+                    travel_date=place_travel.date,
+                    order=place_travel.order,
+                    photos=[PhotoDisplay.from_orm(photo) for photo in place_travel.place.photos if photo.file is not None]
+                ) for place_travel in user_travel.places
             ]
 
-            # Serialize members
             members = [
-                {
-                    'user_id': member.user_id,
-                    'username': member.user.username,
-                    'img': base64.b64encode(member.user.img).decode('utf-8') if member.user.img else None
-                } for member in user_travel.members
+                MemberInfo(
+                    user_id=member.user_id,
+                    username=member.user.username,
+                    img=member.user.img
+                ) for member in user_travel.members
             ]
 
-            # Prepare the complete response data
-            response_data = {
-                'id': user_travel.id,
-                'owner_user_id': user_travel.owner_user_id,
-                'title': user_travel.title,
-                'description': user_travel.description,
-                'score': user_travel.score,
-                'img': base64.b64encode(user_travel.img).decode('utf-8') if user_travel.img else None,
-                'status': user_travel.status,
-                'places': places,
-                'members': members
-            }
+            response_data = TravelDetailDisplay(
+                id=user_travel.id,
+                owner_user_id=user_travel.owner_user_id,
+                title=user_travel.title,
+                description=user_travel.description,
+                score=user_travel.score,
+                img=user_travel.img,
+                status=user_travel.status,
+                places=places,
+                members=members
+            ).dict()
+
             return web.json_response(response_data, status=200)
 
         except ValidationError as e:
@@ -343,6 +286,7 @@ class TravelHandler:
                 new_mean_score = ((old_mean_score * old_count_users) + new_score) / (old_count_users + 1)
                 travel.mean_score = new_mean_score
                 travel.count_users += 1
+                travel_id_response = travel.id
             else:
                 # Создаем новую запись в Travel
                 new_travel = Travel(
@@ -355,9 +299,10 @@ class TravelHandler:
                 db_session.add(new_travel)
                 db_session.flush()  # Получаем ID нового Travel
                 users_travel.travel_id = new_travel.id
+                travel_id_response = travel.id
 
             db_session.commit()
-            return web.json_response({'message': 'Travel updated successfully'}, status=200)
+            return web.json_response({'id':travel_id_response,'message': 'Travel updated successfully'}, status=200)
 
         except ValidationError as e:
             db_session.rollback()
@@ -382,49 +327,47 @@ class TravelHandler:
             if not travel:
                 return web.json_response({'message': 'Travel not found'}, status=404)
 
-            # Serialize places with photo processing
             places = [
-                {
-                    'id': place_travel.place.id,
-                    'title': place_travel.place.title,
-                    'description': place_travel.place.description,
-                    'address': place_travel.place.address,
-                    'type': place_travel.place.type,
-                    'coordinates': place_travel.place.coordinates,
-                    'status': place_travel.place.status,
-                    'mean_score': place_travel.place.mean_score,
-                    'photos': [
-                        PhotoDisplay2.from_orm(photo).dict() for photo in place_travel.place.photos if photo.file is not None
-                    ]
-                } for place_travel in travel.user_travel.places
+                PlaceInfo(
+                    id=place_travel.place.id,
+                    title=place_travel.place.title,
+                    description=place_travel.place.description,
+                    address=place_travel.place.address,
+                    type=place_travel.place.type,
+                    coordinates=place_travel.place.coordinates,
+                    travel_comment=place_travel.description,
+                    travel_date=None,
+                    order=place_travel.order,
+                    photos=[PhotoDisplay.from_orm(photo) for photo in place_travel.place.photos if photo.file is not None]
+                ).dict() for place_travel in travel.user_travel.places
             ]
 
-            # Serialize members
             members = [
-                {
-                    'user_id': member.user_id,
-                    'username': member.user.username,
-                    'img': base64.b64encode(member.user.img).decode('utf-8') if member.user.img else None
-                } for member in travel.user_travel.members
+                MemberInfo(
+                    user_id=member.user_id,
+                    username=member.user.username,
+                    img=member.user.img
+                ).dict() for member in travel.user_travel.members
             ]
 
-            # Prepare the complete response data
-            response_data = {
-                'id': travel.id,
-                'mean_score': travel.mean_score,
-                'count_users': travel.count_users,
-                'user_travel': {
-                    'id': travel.user_travel.id,
-                    'owner_user_id': travel.user_travel.owner_user_id,
-                    'title': travel.user_travel.title,
-                    'description': travel.user_travel.description,
-                    'score': travel.user_travel.score,
-                    'img': base64.b64encode(travel.user_travel.img).decode('utf-8') if travel.user_travel.img else None,
-                    'status': travel.user_travel.status,
-                    'places': places,
-                    'members': members
-                }
-            }
+            user_travel_info = UserTravelInfo(
+                id=travel.user_travel.id,
+                owner_user_id=travel.user_travel.owner_user_id,
+                title=travel.user_travel.title,
+                description=travel.user_travel.description,
+                score=travel.user_travel.score,
+                img=travel.user_travel.img,
+                status=travel.user_travel.status,
+                places=places,
+                members=members
+            )
+
+            response_data = TravelDetailDisplayExtended(
+                id=travel.id,
+                mean_score=travel.mean_score,
+                count_users=travel.count_users,
+                user_travel=user_travel_info
+            ).dict()
 
             return web.json_response(response_data, status=200)
 

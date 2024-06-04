@@ -1,6 +1,6 @@
 from aiohttp import web
 from sqlalchemy.exc import SQLAlchemyError
-from models import db_session, User
+from models import db_session, User,AuthResponse
 from jwtAuth import JWTAuth
 import datetime
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
@@ -27,12 +27,14 @@ class AuthHandler:
             access_token = JWTAuth.create_access_token(data={"sub": userName, "user_id": new_user.id}, expires_delta=access_token_expires)
             refresh_token = JWTAuth.create_refresh_token(data={"sub": userName, "user_id": new_user.id}, expires_delta=refresh_token_expires)
 
-            response =  web.json_response({
-                "id": new_user.id,
-                "username": userName,
-                'message': 'User registered successfully',
-                'access_token': access_token,
-            }, status=201)
+            response_data = AuthResponse(
+                id=new_user.id,
+                username=userName,
+                access_token=access_token,
+                img=None  # Для регистрации img всегда None
+            )
+
+            response = web.json_response(response_data.dict(), status=201)
 
             response.set_cookie('refreshToken', refresh_token, httponly=True, secure=True, samesite='Strict', path='/refresh_token')
 
@@ -56,12 +58,14 @@ class AuthHandler:
                 access_token = JWTAuth.create_access_token(data={"sub": userName, "user_id": user.id}, expires_delta=access_token_expires)
                 refresh_token = JWTAuth.create_refresh_token(data={"sub": userName, "user_id": user.id}, expires_delta=refresh_token_expires)
 
-                response = web.json_response({
-                    "id": user.id,
-                    "username": userName,
-                    'message': 'Login successful',
-                    'access_token': access_token,
-                }, status=200)
+                response_data = AuthResponse(
+                    id=user.id,
+                    username=userName,
+                    access_token=access_token,
+                    img=user.img  # Предполагая, что у пользователя есть поле img
+                )
+
+                response = web.json_response(response_data.dict(), status=200)
                 response.set_cookie('refreshToken', refresh_token, httponly=True, secure=True, samesite='Strict', path='/refresh_token')
                 return response
             else:
@@ -90,11 +94,17 @@ class AuthHandler:
                 expires_delta=access_token_expires
             )
 
-            return web.json_response({
-                "id": userId,
-                "username": userName,               
-                'access_token': new_access_token
-            }, status=200)
+            user = db_session.query(User).filter(User.id == userId).first()
+
+            response_data = AuthResponse(
+                id=userId,
+                username=userName,
+                access_token=new_access_token,
+                img=user.img  # Предполагая, что у пользователя есть поле img
+            )
+
+            return web.json_response(response_data.dict(), status=200)
+
 
         except ExpiredSignatureError:
             return web.json_response({'message': 'Refresh token expired'}, status=401)

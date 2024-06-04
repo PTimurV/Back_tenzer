@@ -1,7 +1,7 @@
 from aiohttp import web
 import aiohttp_cors
-from authHandlers import AuthHandler
-from travels import TravelHandler
+from handlers.authHandler import AuthHandler
+from handlers.travelsHandler import TravelHandler
 from handlers.PlaceHandler import PlaceHandler
 from handlers.UserHandler import UserHandler
 from handlers.FriendHandler import FriendHandler
