@@ -31,6 +31,7 @@ class AuthHandler:
                 id=new_user.id,
                 username=userName,
                 access_token=access_token,
+                refresh_token=refresh_token,
                 img=None  # Для регистрации img всегда None
             )
 
@@ -62,6 +63,7 @@ class AuthHandler:
                     id=user.id,
                     username=userName,
                     access_token=access_token,
+                    refresh_token=refresh_token,
                     img=user.img  # Предполагая, что у пользователя есть поле img
                 )
 
@@ -75,7 +77,7 @@ class AuthHandler:
             return web.json_response({'error': str(e)}, status=500)
 
     async def refresh_token(self, request):
-        refresh_token = request.cookies.get('refreshToken')
+        refresh_token = request.headers.get('refresh_token')
 
         if not refresh_token:
             raise web.HTTPUnauthorized(reason="Refresh token not found")
@@ -100,16 +102,18 @@ class AuthHandler:
                 id=userId,
                 username=userName,
                 access_token=new_access_token,
+                refresh_token=refresh_token,
                 img=user.img  # Предполагая, что у пользователя есть поле img
             )
 
             return web.json_response(response_data.dict(), status=200)
 
-
         except ExpiredSignatureError:
             return web.json_response({'message': 'Refresh token expired'}, status=401)
         except InvalidTokenError:
             return web.json_response({'message': 'Invalid refresh token'}, status=401)
+        except SQLAlchemyError as e:
+            return web.json_response({'error': str(e)}, status=500)
         
     async def logout(self, request):
         # Установить cookie с токеном обновления так, чтобы оно истекло

@@ -173,7 +173,8 @@ class AuthResponse(BaseModel):
     id: int
     username: str
     access_token: str
-    img: Optional[str] = None  # Изменение типа на str
+    img: Optional[str] = None
+    refresh_token: str  # Изменение типа на str
 
     @validator('img', pre=True, allow_reuse=True)
     def convert_bytes_to_base64(cls, v):
@@ -234,8 +235,8 @@ class UserProfileDisplay(BaseModel):
         return v
 class FriendInfo(BaseModel):
     friend_id: int
-    name: str
-    surname: str
+    name: Optional[str]
+    surname: Optional[str]
     img: Optional[str]
     username: str
     status: int

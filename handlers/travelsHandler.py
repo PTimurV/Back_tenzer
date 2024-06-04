@@ -1,6 +1,6 @@
 from aiohttp import web
 from sqlalchemy.exc import SQLAlchemyError
-from models import db_session, Travel, Place,UsersTravel, PlaceInfo,PlacesTravel,TravelInfoDisplay,PhotoDisplay,AddMemberRequest,UsersTravelMember,User,PhotoDisplay2,BestTravel,UserFriend,TravelDetailDisplay,MemberInfo,UserTravelInfo,TravelDetailDisplayExtended
+from models import db_session, Travel, Place,UsersTravel, PlaceInfo,PlacesTravel,TravelInfoDisplay,PhotoDisplay,AddMemberRequest,UsersTravelMember,User,PhotoDisplay2,BestTravel,UserFriend,TravelDetailDisplay,MemberInfo,UserTravelInfo,TravelDetailDisplayExtended,PlaceTravelDisplay
 from jwtAuth import JWTAuth
 from pydantic import ValidationError  # Добавляем импорт
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
@@ -40,6 +40,7 @@ class TravelHandler:
             db_session.rollback()
             return web.json_response({'error': str(e)}, status=500)
         
+    import base64
 
     async def update_user_travel(self, request):
         token = request.headers.get('Authorization', '').split(' ')[-1]
@@ -49,35 +50,35 @@ class TravelHandler:
         if not owner_user_id:
             return web.json_response({'error': 'Unauthorized access'}, status=401)
 
-        reader = await request.multipart()
-        data = {}
-
         try:
-            # Чтение данных из формы
-            while True:
-                part = await reader.next()
-                if part is None:
-                    break
-                if part.name in ['title', 'description', 'start_date', 'end_date']:
-                    data[part.name] = await part.text()
-                elif part.name == 'img':
-                    data['img'] = await part.read()  # Читаем бинарные данные изображения
-                elif part.name == 'member_ids':
-                    data['member_ids'] = [int(id) for id in (await part.text()).split(',') if id.isdigit()]
-
-            # Ищем существующий объект UsersTravel
             travel_id = int(request.match_info['travel_id'])  # ID путешествия из URL
+            json_data = await request.json()
+
             travel = db_session.query(UsersTravel).filter(UsersTravel.id == travel_id).first()
             if not travel:
                 return web.json_response({'error': 'Travel not found'}, status=404)
+
+            # Обновление данных о путешествии
+            travel.title = json_data.get('title', travel.title)
+            travel.description = json_data.get('description', travel.description)
+            travel.start_date = json_data.get('start_date', travel.start_date)
+            travel.end_date = json_data.get('end_date', travel.end_date)
+            travel.status = json_data.get('status', travel.status)
             
-            # Обновление данных объекта
-            for key, value in data.items():
-                setattr(travel, key, value)
-            
-            # Добавление участников, если они есть
-            if 'member_ids' in data:
-                for member_id in data['member_ids']:
+            # Обработка изображения
+            img_data = json_data.get('img')
+            if img_data:
+                header, encoded = img_data.split(',', 1)
+                travel.img = base64.b64decode(encoded)
+
+            # Обновление участников
+            member_data = json_data.get('members', [])
+            if member_data:
+                # Удаляем существующих участников
+                db_session.query(UsersTravelMember).filter(UsersTravelMember.users_travel_id == travel_id).delete()
+                # Добавляем новых участников
+                for member in member_data:
+                    member_id = member.get('user_id')
                     if db_session.query(User).filter(User.id == member_id).scalar():
                         new_member = UsersTravelMember(
                             users_travel_id=travel.id,
@@ -85,15 +86,47 @@ class TravelHandler:
                         )
                         db_session.add(new_member)
 
+            # Обновление мест
+            places = json_data.get('places', [])
+            if places:
+                # Удаление всех существующих мест для данного путешествия
+                db_session.query(PlacesTravel).filter(PlacesTravel.users_travel_id == travel_id).delete()
+                db_session.commit()  # Применяем изменения после удаления
+
+                new_ids = []
+                # Создание и добавление новых мест
+                for place_data in places:
+                    new_place_travel = PlacesTravel(
+                        users_travel_id=travel_id,
+                        place_id=place_data['place_id'],
+                        date=place_data.get('date'),
+                        description=place_data.get('description'),
+                        order=place_data.get('order')
+                    )
+                    db_session.add(new_place_travel)
+                    db_session.flush()  # Получаем ID новых записей
+                    new_ids.append(new_place_travel.id)
+
+                # Получение только что добавленных мест
+                all_new_places = db_session.query(PlacesTravel).filter(PlacesTravel.id.in_(new_ids)).all()
+                # Подготовка данных о местах для ответа
+                response_places = [PlaceTravelDisplay.from_orm(place).dict() for place in all_new_places]
+
             db_session.commit()
-            return web.json_response({
+
+            response_data = {
                 'id': travel.id,
                 'message': 'Travel updated successfully'
-            }, status=200)
+            }
+
+            return web.json_response(response_data, status=200)
 
         except SQLAlchemyError as e:
             db_session.rollback()
             return web.json_response({'error': str(e)}, status=500)
+
+
+
 
     async def get_user_travels(self,request):
         try:
