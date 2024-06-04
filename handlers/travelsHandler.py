@@ -314,6 +314,7 @@ class TravelHandler:
 
             users_travel.status = 'passed'
             users_travel.score = new_score
+            travel_id_response = 0
 
             # Проверяем, существует ли связанный Travel
             if users_travel.travel_id:
