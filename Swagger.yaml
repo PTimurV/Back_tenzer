@@ -1,0 +1,975 @@
+openapi: 3.0.0
+info:
+  title: Travel Application API
+  description: API documentation for the Travel application
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+paths:
+  /register:
+    post:
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  message:
+                    type: string
+                  access_token:
+                    type: string
+        '400':
+          description: Bad request
+        '500':
+          description: Server error
+  /login:
+    post:
+      summary: Login a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  message:
+                    type: string
+                  access_token:
+                    type: string
+        '401':
+          description: Invalid credentials
+        '500':
+          description: Server error
+  /refresh_token:
+    post:
+      summary: Refresh the access token
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  access_token:
+                    type: string
+        '401':
+          description: Unauthorized
+  /logout:
+    post:
+      summary: Logout the user
+      responses:
+        '200':
+          description: Logged out successfully
+        '401':
+          description: Unauthorized
+  /user_travels:
+    post:
+      summary: Create a new user travel
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserTravelCreate'
+      responses:
+        '201':
+          description: Travel created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+  /user_travels/{travel_id}:
+    put:
+      summary: Update an existing user travel
+      parameters:
+        - in: path
+          name: travel_id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserTravelUpdate'
+      responses:
+        '200':
+          description: Travel updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  message:
+                    type: string
+        '404':
+          description: Travel not found
+        '500':
+          description: Server error
+  /profile/{user_id}/user_travels:
+    get:
+      summary: Get user travels by status
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: integer
+        - in: query
+          name: status
+          required: true
+          schema:
+            type: string
+            enum: [creating, passed, now]
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TravelInfoDisplay'
+        '400':
+          description: Invalid status provided
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+  /user_travels/{id}:
+    get:
+      summary: Get details of a user travel
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsersTravelDisplay2'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Travel not found
+        '500':
+          description: Server error
+  /user_travels/{id}/add_member:
+    post:
+      summary: Add a member to a user travel
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddMemberRequest'
+      responses:
+        '201':
+          description: Member added successfully
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+  /user_travels/{id}/passed:
+    post:
+      summary: Update travel status and score
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                score:
+                  type: number
+                  format: float
+      responses:
+        '200':
+          description: Travel updated successfully
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+  /travels/{id}:
+    get:
+      summary: Get details of a travel
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TravelDisplay'
+        '404':
+          description: Travel not found
+        '500':
+          description: Server error
+  /travels/{id}/copy:
+    post:
+      summary: Copy a travel
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Travel copied successfully
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+  /HintCard:
+    get:
+      summary: Get hint card
+      responses:
+        '200':
+          description: Successful operation
+        '500':
+          description: Server error
+  /places:
+    post:
+      summary: Create a new place
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PlaceCreate'
+      responses:
+        '201':
+          description: Place created successfully
+        '500':
+          description: Server error
+  /add_place_to_travel/{id}:
+    post:
+      summary: Add a place to a travel
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/PlaceTravelCreate'
+      responses:
+        '201':
+          description: Place added to travel successfully
+        '500':
+          description: Server error
+  /place/{id}:
+    get:
+      summary: Get details of a place
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaceDisplayId'
+        '404':
+          description: Place not found
+        '500':
+          description: Server error
+  /places{get}:
+    get:
+      summary: Get all places by city and type
+      parameters:
+        - in: query
+          name: city
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: type
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlaceDisplayId2'
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+  /profile/settings:
+    put:
+      summary: Update user settings
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+    get:
+      summary: Get user settings
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSettingsDisplay'
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+  /profile/{id}:
+    get:
+      summary: Get user profile
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileDisplay'
+        '401':
+          description: Unauthorized
+        '404':
+          description: User not found
+        '500':
+          description: Server error
+  /friends/{user_id}:
+    get:
+      summary: Get user friends
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pending_sent:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FriendDisplay'
+                  pending_received:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FriendDisplay'
+                  friends:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FriendDisplay'
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+  /users:
+    get:
+      summary: Get all users
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserBase'
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+  /friends/send/{friend_id}:
+    post:
+      summary: Send a friend request
+      parameters:
+        - in: path
+          name: friend_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Friend request sent successfully
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '404':
+          description: Friend user not found
+        '500':
+          description: Server error
+  /friends/respond/{request_id}:
+    post:
+      summary: Respond to a friend request
+      parameters:
+        - in: path
+          name: request_id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                response:
+                  type: string
+                  enum: [accept, reject]
+      responses:
+        '200':
+          description: Response recorded
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '404':
+          description: Friend request not found
+        '500':
+          description: Server error
+  /places/{place_id}/feedback:
+    post:
+      summary: Add feedback to a place
+      parameters:
+        - in: path
+          name: place_id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceFeedbackBase'
+      responses:
+        '201':
+          description: Feedback added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  place_id:
+                    type: integer
+                  user_id:
+                    type: integer
+                  score:
+                    type: number
+                    format: float
+                  description:
+                    type: string
+                  mean_score:
+                    type: number
+                    format: float
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+components:
+  schemas:
+    UserCreate:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        password:
+          type: string
+    LoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+    UserTravelCreate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        img:
+          type: string
+          format: binary
+    UserTravelUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        img:
+          type: string
+          format: binary
+        member_ids:
+          type: array
+          items:
+            type: integer
+    AddMemberRequest:
+      type: object
+      properties:
+        user_id:
+          type: integer
+    TravelInfoDisplay:
+      type: object
+      properties:
+        id:
+          type: integer
+        owner_user_id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        img:
+          type: string
+        status:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        places:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlaceInfo'
+    PlaceInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        address:
+          type: string
+        type:
+          type: string
+        coordinates:
+          type: string
+        travel_comment:
+          type: string
+        travel_date:
+          type: string
+          format: date
+        order:
+          type: integer
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/PhotoDisplay'
+    PhotoDisplay:
+      type: object
+      properties:
+        id:
+          type: integer
+        file:
+          type: string
+    UsersTravelDisplay2:
+      type: object
+      properties:
+        id:
+          type: integer
+        owner_user_id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        score:
+          type: number
+          format: float
+        img:
+          type: string
+        status:
+          type: string
+        places:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlaceTravelDisplay2'
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/TravelMemberDisplay2'
+    PlaceTravelDisplay2:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        description:
+          type: string
+        order:
+          type: integer
+        place:
+          $ref: '#/components/schemas/PlaceDisplay2'
+    TravelMemberDisplay2:
+      type: object
+      properties:
+        user_id:
+          type: integer
+        username:
+          type: string
+        img:
+          type: string
+    PlaceCreate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        address:
+          type: string
+        type:
+          type: string
+        coordinates:
+          type: string
+        file:
+          type: string
+          format: binary
+    PlaceDisplayId:
+      type: object
+      properties:
+        id:
+          type: integer
+        creator_user_id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        address:
+          type: string
+        type:
+          type: string
+        coordinates:
+          type: string
+        status:
+          type: string
+        mean_score:
+          type: number
+          format: float
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/PhotoDisplayId'
+        feedbacks:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeedbackDisplayId'
+    PhotoDisplayId:
+      type: object
+      properties:
+        file:
+          type: string
+    FeedbackDisplayId:
+      type: object
+      properties:
+        user_id:
+          type: integer
+        username:
+          type: string
+        score:
+          type: number
+          format: float
+        description:
+          type: string
+    PlaceDisplayId2:
+      type: object
+      properties:
+        id:
+          type: integer
+        creator_user_id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        address:
+          type: string
+        type:
+          type: string
+        coordinates:
+          type: string
+        mean_score:
+          type: number
+          format: float
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/PhotoDisplayId'
+    UserUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        surname:
+          type: string
+        role:
+          type: string
+        gender:
+          type: string
+        birthday:
+          type: string
+          format: date
+        city:
+          type: string
+        interests:
+          type: array
+          items:
+            type: integer
+        img:
+          type: string
+          format: binary
+    UserSettingsDisplay:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        img:
+          type: string
+        name:
+          type: string
+        surname:
+          type: string
+        role:
+          type: string
+        gender:
+          type: string
+        birthday:
+          type: string
+          format: date
+        city:
+          type: string
+        interests:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserInterestDisplay'
+    UserInterestDisplay:
+      type: object
+      properties:
+        interest_id:
+          type: integer
+        name:
+          type: string
+    UserProfileDisplay:
+      type: object
+      properties:
+        username:
+          type: string
+        name:
+          type: string
+        surname:
+          type: string
+        img:
+          type: string
+        owner:
+          type: integer
+        interests:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserInterestDisplay'
+    FriendDisplay:
+      type: object
+      properties:
+        friend_id:
+          type: integer
+        username:
+          type: string
+        name:
+          type: string
+        surname:
+          type: string
+        img:
+          type: string
+        status:
+          type: integer
+    UserBase:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        name:
+          type: string
+        surname:
+          type: string
+    PlaceFeedbackBase:
+      type: object
+      properties:
+        score:
+          type: number
+          format: float
+        description:
+          type: string
+    TravelDisplay:
+      type: object
+      properties:
+        id:
+          type: integer
+        mean_score:
+          type: number
+          format: float
+        count_users:
+          type: integer
+        user_travel:
+          $ref: '#/components/schemas/UsersTravelDisplay2'
+    PlaceDisplay2:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        address:
+          type: string
+        type:
+          type: string
+        coordinates:
+          type: string
+        status:
+          type: string
+        mean_score:
+          type: number
+          format: float
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/PhotoDisplay2'
+    PhotoDisplay2:
+      type: object
+      properties:
+        id:
+          type: integer
+        file:
+          type: string
