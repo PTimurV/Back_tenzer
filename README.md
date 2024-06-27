@@ -5,3 +5,4 @@ Restfull api бэкенд для платформы планирования с�
 Реализованы CRUD операции для сущностей: User, Interest, UserInterest, UserFriend, Travel, UsersTravel, UsersTravelMember, Place, PlaceTravelComment, PlacePhoto, PlaceFeedback, PlacesTravel, BestTravel.
 Реализована обработка ошибок и валидация полей.
 Весь вывод информации реализован с помощью pydentic моделей.
+Проект задеплоен. Начальный url: https://backtenzer-production.up.railway.app
